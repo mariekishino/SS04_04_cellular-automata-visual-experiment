@@ -51,3 +51,16 @@ scripts/make_media.sh experiments/out/L1    # video.mp4 と sheet.png を作る
 | エージェント | [.claude/skills/phase-report/SKILL.md](.claude/skills/phase-report/SKILL.md) | フェーズ完了時の報告様式(`/phase-report`) |
 
 「実装者」は本人とコーディングエージェントの両方を指します。
+
+## 参考にしたもの
+
+コードはどのリポジトリからもコピーしていません。式・定数・データの出典は以下のとおりで、各ソースファイルの冒頭コメントにも同じ内容を書いてあります。
+
+| 対象 | 出典 | 使った範囲 |
+| --- | --- | --- |
+| Lenia 型の更新則 | B. W.-C. Chan, "Lenia: Biology of Artificial Life", Complex Systems 28(3), 2019 ([arXiv:1812.05433](https://arxiv.org/abs/1812.05433)) | カーネル・成長関数・更新式の定義。単一チャンネル・単一リング・直接畳み込みに単純化 |
+| Orbium の初期配置とパラメータ | [Chakazul/Lenia](https://github.com/Chakazul/Lenia)(MIT License、(c) Bert Wang-Chak Chan)の `Python/animals.json` | 20×20 のセル値と R, T, m, s をデコードして [src/core/orbium_cells.hpp](src/core/orbium_cells.hpp) に同梱 |
+| Gray–Scott の式 | J. E. Pearson, "Complex Patterns in a Simple System", Science 261 (1993) 189–192 | 反応拡散方程式 |
+| Gray–Scott の離散化と定数 | [Karl Sims, Reaction-Diffusion Tutorial](https://www.karlsims.com/rd.html) | 9 点ラプラシアンの重み、Du, Dv, dt、coral / mitosis の F, k |
+
+Grid、指標、PNG 出力、CLI、テスト、実験の設計はこのリポジトリで書いたものです。
