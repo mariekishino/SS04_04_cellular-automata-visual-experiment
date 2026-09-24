@@ -27,3 +27,4 @@
 - [0003 — SDL3 の窓表示を CMake オプションで追加し、仮想ディスプレイで検証する](0003_sdl3_window_fetchcontent.md)
 - [0004 — 刺激なしの基準動作として Orbium の直進を受け入れる](0004_accept_gliding_baseline.md)
 - [0005 — 刺激の経路、音声ファイルの扱い、再生と刺激の時刻合わせ](0005_stimulus_path_and_audio.md)
+- [0006 — 履歴の最初の機構は「順応」](0006_adaptation_as_history.md)
