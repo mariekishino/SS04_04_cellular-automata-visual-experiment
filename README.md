@@ -6,12 +6,14 @@
 ## 3行で言うと
 
 - **何を作るか:** まとまりを保ちながら流体のように動く視覚的存在。音はスイッチではなく環境入力。
-- **今どこか:** **Phase 0(モデル探索)**。コードはまだなく、ドキュメントだけがあります。
-- **次に何をするか:** Lenia 型と Gray–Scott 型の 2 モデルを小さい格子で動かし、目と数値で比較する。
+- **今どこか:** **Phase 1(無音でも動く身体)**。Phase 0 で Lenia 型と Gray–Scott を比較し、Lenia 型を採用した。
+- **次に何をするか:** Orbium を長く観察できる窓アプリを作り、まとまりと動きを数値で言えるようにする。
 
 ## 現在のフェーズ
 
-**Phase 0 — モデル探索** → [docs/phases/00_model_exploration.md](docs/phases/00_model_exploration.md)
+**Phase 1 — 無音でも動く身体** → [docs/phases/01_autonomous_body.md](docs/phases/01_autonomous_body.md)
+
+Phase 0 は完了(報告: [docs/phases/00_report.md](docs/phases/00_report.md))。採用モデルは Lenia 型(Orbium、周期境界)。
 
 フェーズを進めるときは、この節だけを書き換えます。コーディングエージェントはこの節を「今の作業範囲」として読みます([CLAUDE.md](CLAUDE.md) 参照)。
 
@@ -32,6 +34,18 @@ scripts/make_media.sh experiments/out/L1    # video.mp4 と sheet.png を作る
 
 出力先には `config.json`(再現に必要な設定)、`metrics.csv`、`frames/*.png`、`state.bin`(再開用)、`summary.txt`(健全性フラグと計測時間)が書かれます。Phase 0 では窓を開かず画像に書き出します([decisions/0002](docs/decisions/0002_headless_rendering_phase0.md))。
 
+### 窓アプリ(Phase 1、SDL3)
+
+```bash
+cmake -S . -B build-sdl -DCMAKE_BUILD_TYPE=Release -DCAVE_WITH_SDL3=ON   # SDL3 がなければ自動取得(初回は数分)
+cmake --build build-sdl -j --target cave_window
+./build-sdl/cave_window --width 64 --height 64 --scale 8 --sps 60
+```
+
+キー: Space 停止/再開、N 1 ステップ(停止中)、R 同じ seed でリセット、S スクリーンショット、+/- 速度を 2 倍/半分、Q 終了。タイトルバーにステップ数・速度・総量・連結成分数が出ます。
+
+Linux でソースからビルドする場合は X11 の開発パッケージが要ります(一覧は [decisions/0003](docs/decisions/0003_sdl3_window_fetchcontent.md))。VM では仮想ディスプレイで、Mac では実機で動作を確認しています。Windows は未確認です。
+
 ## ドキュメントの地図
 
 各ファイルの冒頭に「読者」と「役割」を書いてあります。迷ったらこの表から入ってください。
@@ -43,7 +57,7 @@ scripts/make_media.sh experiments/out/L1    # video.mp4 と sheet.png を作る
 | 本人 | [docs/04_development_workflow.md](docs/04_development_workflow.md) | 1 フェーズをどう回すか(人間側の手順) |
 | 実装者 | [docs/01_architecture.md](docs/01_architecture.md) | 技術方針、責務の境界、性能の考え方 |
 | 実装者 | [docs/02_experiment_protocol.md](docs/02_experiment_protocol.md) | 何を記録し、何を測るか |
-| 実装者 | [docs/phases/](docs/phases/) | 各フェーズの具体的な実装範囲と完了条件。Phase 0 の報告は [00_report.md](docs/phases/00_report.md) |
+| 実装者 | [docs/phases/](docs/phases/) | 各フェーズの具体的な実装範囲と完了条件。報告: [Phase 0](docs/phases/00_report.md)、[Phase 1](docs/phases/01_report.md) |
 | 実装者 | [docs/decisions/](docs/decisions/) | 後から変えるときに理由が要る決定 |
 | 本人 | [docs/learning/](docs/learning/) | C++ とモデルの学習メモ |
 | 本人 | [docs/future/](docs/future/) | 今は範囲外の将来構想 |

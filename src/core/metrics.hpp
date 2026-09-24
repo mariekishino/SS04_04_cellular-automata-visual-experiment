@@ -41,3 +41,26 @@ std::string csv_header(const std::vector<std::string>& channel_names);
 std::string csv_row(unsigned long long step, double t, const std::vector<ChannelMetrics>& m);
 
 }  // namespace cave
+
+namespace cave {
+
+// Shape metrics for "is it one blob, and is it moving?" (Phase 1).
+// Centroid is mass-weighted. With Boundary::Periodic it uses the circular
+// mean per axis, so a blob straddling the seam still gets a centroid on the
+// blob, not in the middle of the grid.
+struct ShapeMetrics {
+    double mass = 0.0;
+    double cx = 0.0, cy = 0.0;     // centroid in cell units, [0,W) x [0,H)
+    double spread = 0.0;           // RMS distance of mass from centroid (minimal image)
+    std::size_t components = 0;    // 4-connected components of cells >= threshold
+};
+
+ShapeMetrics compute_shape(const Grid& g, Boundary b, float threshold);
+
+// Mass and centroid only (no spread, no components). Cheap enough to call every step.
+ShapeMetrics compute_centroid(const Grid& g, Boundary b);
+
+// Minimal-image displacement from (ax, ay) to (bx, by) on a W x H grid.
+void displacement(double ax, double ay, double bx, double by, int W, int H, Boundary b, double& dx, double& dy);
+
+}  // namespace cave
