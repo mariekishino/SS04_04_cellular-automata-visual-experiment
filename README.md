@@ -6,12 +6,14 @@
 ## 3行で言うと
 
 - **何を作るか:** まとまりを保ちながら流体のように動く視覚的存在。音はスイッチではなく環境入力。
-- **今どこか:** **Phase 0(モデル探索)**。コードはまだなく、ドキュメントだけがあります。
-- **次に何をするか:** Lenia 型と Gray–Scott 型の 2 モデルを小さい格子で動かし、目と数値で比較する。
+- **今どこか:** **Phase 1(無音でも動く身体)**。Phase 0 で Lenia 型と Gray–Scott を比較し、Lenia 型を採用した。
+- **次に何をするか:** Orbium を長く観察できる窓アプリを作り、まとまりと動きを数値で言えるようにする。
 
 ## 現在のフェーズ
 
-**Phase 0 — モデル探索** → [docs/phases/00_model_exploration.md](docs/phases/00_model_exploration.md)
+**Phase 1 — 無音でも動く身体** → [docs/phases/01_autonomous_body.md](docs/phases/01_autonomous_body.md)
+
+Phase 0 は完了(報告: [docs/phases/00_report.md](docs/phases/00_report.md))。採用モデルは Lenia 型(Orbium、周期境界)。
 
 フェーズを進めるときは、この節だけを書き換えます。コーディングエージェントはこの節を「今の作業範囲」として読みます([CLAUDE.md](CLAUDE.md) 参照)。
 
