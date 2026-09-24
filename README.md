@@ -57,7 +57,7 @@ Linux でソースからビルドする場合は X11 の開発パッケージが
 | 本人 | [docs/04_development_workflow.md](docs/04_development_workflow.md) | 1 フェーズをどう回すか(人間側の手順) |
 | 実装者 | [docs/01_architecture.md](docs/01_architecture.md) | 技術方針、責務の境界、性能の考え方 |
 | 実装者 | [docs/02_experiment_protocol.md](docs/02_experiment_protocol.md) | 何を記録し、何を測るか |
-| 実装者 | [docs/phases/](docs/phases/) | 各フェーズの具体的な実装範囲と完了条件。Phase 0 の報告は [00_report.md](docs/phases/00_report.md) |
+| 実装者 | [docs/phases/](docs/phases/) | 各フェーズの具体的な実装範囲と完了条件。報告: [Phase 0](docs/phases/00_report.md)、[Phase 1](docs/phases/01_report.md) |
 | 実装者 | [docs/decisions/](docs/decisions/) | 後から変えるときに理由が要る決定 |
 | 本人 | [docs/learning/](docs/learning/) | C++ とモデルの学習メモ |
 | 本人 | [docs/future/](docs/future/) | 今は範囲外の将来構想 |
