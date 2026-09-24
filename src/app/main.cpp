@@ -74,6 +74,7 @@ struct Args {
     double probe_at = -1.0, probe_dur = 0.5; float probe_amp = 1.0f;   // probe pulse layered on top (max)
     double wav_until = -1.0;                                             // silence the WAV from this second on
     double adapt_k = -1.0, adapt_tau = -1.0;                             // -> overrides adapt_k, adapt_tau_steps
+    double plast_rate = -1.0, plast_return = -1.0;                       // per second / seconds -> plast_rate, plast_return_steps
 };
 
 void usage() {
@@ -97,7 +98,9 @@ void usage() {
         "history (Phase 3):\n"
         "  --probe-at T --probe-dur D --probe-amp A   (a probe pulse layered on the history input; max)\n"
         "  --wav-until T              (silence the WAV from T seconds on)\n"
-        "  --adapt-k K --adapt-tau SECONDS            (adaptation: g_eff = g / (1 + K m), m = EMA of s with tau)\n");
+        "  --adapt-k K --adapt-tau SECONDS            (adaptation: g_eff = g / (1 + K m), m = EMA of s with tau)\n"
+        "plasticity (Phase 4):\n"
+        "  --plast-rate R_PER_SECOND --plast-return SECONDS   (g -= R m g ; g += (g0-g)/return)\n");
 }
 
 bool parse(int argc, char** argv, Args& a) {
@@ -140,6 +143,8 @@ bool parse(int argc, char** argv, Args& a) {
         else if (k == "--wav-until") { if (!need(v)) return false; a.wav_until = std::stod(v); }
         else if (k == "--adapt-k") { if (!need(v)) return false; a.adapt_k = std::stod(v); }
         else if (k == "--adapt-tau") { if (!need(v)) return false; a.adapt_tau = std::stod(v); }
+        else if (k == "--plast-rate") { if (!need(v)) return false; a.plast_rate = std::stod(v); }
+        else if (k == "--plast-return") { if (!need(v)) return false; a.plast_return = std::stod(v); }
         else if (k == "--resume") a.resume = true;
         else if (k == "--list") a.list = true;
         else if (k == "--quiet") a.quiet = true;
@@ -199,6 +204,8 @@ int main(int argc, char** argv) {
     if (!parse(argc, argv, a)) { usage(); return 2; }
     if (a.adapt_k >= 0.0) a.overrides["adapt_k"] = std::to_string(a.adapt_k);
     if (a.adapt_tau > 0.0) a.overrides["adapt_tau_steps"] = std::to_string(a.adapt_tau * a.sps);
+    if (a.plast_rate >= 0.0) { std::ostringstream o; o.precision(10); o << a.plast_rate / a.sps; a.overrides["plast_rate"] = o.str(); }
+    if (a.plast_return > 0.0) a.overrides["plast_return_steps"] = std::to_string(a.plast_return * a.sps);
     if (a.list_audio) { std::printf("audio files in %s:\n%s", a.audio_dir.c_str(), list_audio_dir(a.audio_dir).c_str()); return 0; }
     if (a.list) {
         std::printf("presets:\n");

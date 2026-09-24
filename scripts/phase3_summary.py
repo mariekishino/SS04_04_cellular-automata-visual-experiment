@@ -20,7 +20,8 @@ def probe_response(d):
     if not before or not during: return None
     base = float(before[-1]["A_sum"]); peak = max(float(r["A_sum"]) for r in during)
     m_at = float(before[-1].get("adapt_m", 0.0))
-    return {"resp": peak - base, "m": m_at, "base": base}
+    g_at = float(before[-1].get("plast_g", float("nan")))
+    return {"resp": peak - base, "m": m_at, "g": g_at, "base": base}
 
 rows = []
 for d in sorted(glob.glob(os.path.join(out, "*"))):
@@ -29,8 +30,8 @@ for d in sorted(glob.glob(os.path.join(out, "*"))):
     r = probe_response(d)
     if r: rows.append((name, r))
 
-print(f"{'run':28} {'m@probe':>8} {'response':>9}")
-for name, r in rows: print(f"{name:28} {r['m']:8.3f} {r['resp']:9.2f}")
+print(f"{'run':28} {'m@probe':>8} {'g@probe':>8} {'response':>9}")
+for name, r in rows: print(f"{name:28} {r['m']:8.3f} {r['g']:8.4f} {r['resp']:9.2f}")
 
 # matrix view: response by history x tau x silence
 print("\nprobe response (mass gain) — rows: history, cols: silence 2/5/20/60 s")

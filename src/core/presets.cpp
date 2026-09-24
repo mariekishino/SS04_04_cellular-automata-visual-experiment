@@ -54,6 +54,8 @@ std::unique_ptr<Model> make_model(const std::string& model, const std::string& p
         p.stim_gain = get_f(ov, "stim_gain", p.stim_gain);
         p.adapt_k = get_f(ov, "adapt_k", p.adapt_k);
         p.adapt_tau_steps = get_f(ov, "adapt_tau_steps", p.adapt_tau_steps);
+        p.plast_rate = get_f(ov, "plast_rate", p.plast_rate);
+        p.plast_return_steps = get_f(ov, "plast_return_steps", p.plast_return_steps);
         return std::make_unique<Lenia>(width, height, p);
     }
     if (model == "grayscott") {

@@ -17,6 +17,14 @@ int main() {
     CHECK_NEAR(ps.duration_seconds(), 4.5, 1e-12);
     PulseParams inf = p; inf.count = -1;
     CHECK(PulseSource(inf).amplitude(100.1) == 0.8f);
+    // a single pulse longer than the default period is not cut short (regression: Phase 2/3 "10 s" pulses)
+    PulseParams lng; lng.start = 2.0; lng.duration = 10.0; lng.count = 1;   // period stays at the default 2.0
+    CHECK(PulseSource(lng).amplitude(5.0) == 1.0f);
+    CHECK(PulseSource(lng).amplitude(11.9) == 1.0f);
+    CHECK(PulseSource(lng).amplitude(12.0) == 0.0f);
+    // repeating pulses longer than the period merge into a continuous one
+    PulseParams ov; ov.start = 0.0; ov.duration = 1.5; ov.period = 1.0; ov.count = 3;
+    CHECK(PulseSource(ov).amplitude(0.5) == 1.0f && PulseSource(ov).amplitude(1.9) == 1.0f && PulseSource(ov).amplitude(3.4) == 1.0f && PulseSource(ov).amplitude(3.6) == 0.0f);
 
     // WAV round trip: 1 s of 0.5-amplitude sine at 8 kHz
     const int sr = 8000;

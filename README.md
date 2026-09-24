@@ -6,14 +6,14 @@
 ## 3行で言うと
 
 - **何を作るか:** まとまりを保ちながら流体のように動く視覚的存在。音はスイッチではなく環境入力。
-- **今どこか:** **Phase 3(履歴)**。Phase 2 で音の刺激が内部更新に作用し、一様なら一過性、勾配なら向きが変わることが分かった。
-- **次に何をするか:** 刺激の長期平均を遅い状態変数として持ち(順応)、同じ音でも履歴によって応答が違うか、その差がどれだけ残るかを測る。
+- **今どこか:** **Phase 4(可塑性)**。Phase 3 で、同じ音でも直前の履歴によって応答が変わる(慣れる)ことが分かった。慣れは静かにすれば数十秒で消える。
+- **次に何をするか:** 音への敏感さ(反応の強さ)そのものを経験でゆっくり書き換え、静かな時間の後にも差が残るか、何分残るかを測る。
 
 ## 現在のフェーズ
 
-**Phase 3 — 履歴** → [docs/phases/03_history.md](docs/phases/03_history.md)
+**Phase 4 — 可塑性** → [docs/phases/04_plasticity.md](docs/phases/04_plasticity.md)
 
-Phase 0〜2 は完了(報告: [Phase 0](docs/phases/00_report.md)、[Phase 1](docs/phases/01_report.md)、[Phase 2](docs/phases/02_report.md))。採用モデルは Lenia 型(Orbium、周期境界、64×64)、刺激の入り口は成長関数への加算。
+Phase 0〜3 は完了(報告: [Phase 0](docs/phases/00_report.md)、[Phase 1](docs/phases/01_report.md)、[Phase 2](docs/phases/02_report.md)、[Phase 3](docs/phases/03_report.md))。採用モデルは Lenia 型(Orbium、周期境界、64×64)、刺激の入り口は成長関数への加算、履歴は順応(時定数 10 秒)。
 
 フェーズを進めるときは、この節だけを書き換えます。コーディングエージェントはこの節を「今の作業範囲」として読みます([CLAUDE.md](CLAUDE.md) 参照)。
 
