@@ -35,6 +35,7 @@ message(STATUS "code_version = ${CAVE_GIT_HASH}")
 add_library(cave_core
   src/core/grid.cpp
   src/core/model.cpp
+  src/core/lenia.cpp
   src/core/metrics.cpp
 )
 target_include_directories(cave_core PUBLIC src)
