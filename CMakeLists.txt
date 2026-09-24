@@ -38,6 +38,7 @@ add_library(cave_core
   src/core/lenia.cpp
   src/core/gray_scott.cpp
   src/core/metrics.cpp
+  src/core/presets.cpp
 )
 target_include_directories(cave_core PUBLIC src)
 target_compile_options(cave_core PRIVATE -Wall -Wextra -Wpedantic)
@@ -50,9 +51,15 @@ add_library(cave_io
 target_link_libraries(cave_io PUBLIC cave_core)
 target_compile_options(cave_io PRIVATE -Wall -Wextra -Wpedantic)
 
+# --- app ---
+add_executable(cave src/app/main.cpp)
+target_link_libraries(cave PRIVATE cave_core cave_io)
+target_compile_definitions(cave PRIVATE CAVE_GIT_HASH="${CAVE_GIT_HASH}")
+target_compile_options(cave PRIVATE -Wall -Wextra -Wpedantic)
+
 # --- tests ---
 enable_testing()
-foreach(t test_grid test_metrics test_png)
+foreach(t test_grid test_lenia test_gray_scott test_metrics test_png test_determinism)
   add_executable(${t} tests/${t}.cpp)
   target_link_libraries(${t} PRIVATE cave_core cave_io)
   add_test(NAME ${t} COMMAND ${t})
