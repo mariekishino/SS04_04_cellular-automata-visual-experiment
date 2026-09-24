@@ -57,6 +57,37 @@ target_link_libraries(cave PRIVATE cave_core cave_io)
 target_compile_definitions(cave PRIVATE CAVE_GIT_HASH="${CAVE_GIT_HASH}")
 target_compile_options(cave PRIVATE -Wall -Wextra -Wpedantic)
 
+# --- optional SDL3 window app (Phase 1) ---
+option(CAVE_WITH_SDL3 "Build cave_window, the SDL3 window app" OFF)
+if(CAVE_WITH_SDL3)
+  find_package(SDL3 CONFIG QUIET)
+  if(NOT SDL3_FOUND)
+    message(STATUS "SDL3 not found on the system; fetching release-3.4.16 and building it statically")
+    include(FetchContent)
+    set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+    set(SDL_STATIC ON CACHE BOOL "" FORCE)
+    set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
+    set(SDL_TESTS OFF CACHE BOOL "" FORCE)
+    set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
+    # Phase 1 needs only video. Audio comes back in Phase 2.
+    set(SDL_AUDIO OFF CACHE BOOL "" FORCE)
+    set(SDL_CAMERA OFF CACHE BOOL "" FORCE)
+    set(SDL_GPU OFF CACHE BOOL "" FORCE)
+    set(SDL_HAPTIC OFF CACHE BOOL "" FORCE)
+    set(SDL_JOYSTICK OFF CACHE BOOL "" FORCE)
+    set(SDL_SENSOR OFF CACHE BOOL "" FORCE)
+    set(SDL_HIDAPI OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(SDL3
+      GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+      GIT_TAG release-3.4.16
+      GIT_SHALLOW TRUE)
+    FetchContent_MakeAvailable(SDL3)
+  endif()
+  add_executable(cave_window src/app/window_main.cpp)
+  target_link_libraries(cave_window PRIVATE cave_core cave_io SDL3::SDL3)
+  target_compile_options(cave_window PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
 # --- tests ---
 enable_testing()
 foreach(t test_grid test_lenia test_gray_scott test_metrics test_shape test_png test_determinism)
