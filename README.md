@@ -84,6 +84,23 @@ scripts/phase3_summary.py experiments/out          # 探針応答(総量増)と�
 
 `metrics.csv` に `adapt_m` 列が加わります。`--wav-until T` で曲を T 秒以降無音にでき、`--stim-shape cos_x` は周期境界で連続な形です。設計の理由は [decisions/0006](docs/decisions/0006_adaptation_as_history.md)。
 
+### 可塑性(Phase 4)
+
+```bash
+# 2 分の連続音の後、2 分の無音を置いて 240 s に探針。可塑性あり(1 秒あたり 0.01、戻り 180 秒)
+./build/cave --out experiments/out/on_E2 --steps 14700 --every 60 --stim pulse --pulse-start 1 --pulse-dur 118 --pulse-period 0 --pulse-count 1 \
+  --probe-at 240 --probe-dur 0.5 --stim-mode growth --stim-gain 0.3 --adapt-k 3 --adapt-tau 10 --plast-rate 0.01 --plast-return 180
+# 同じ条件で可塑性なし(順応だけ)
+./build/cave --out experiments/out/off_E2 --steps 14700 --every 60 --stim pulse --pulse-start 1 --pulse-dur 118 --pulse-period 0 --pulse-count 1 \
+  --probe-at 240 --probe-dur 0.5 --stim-mode growth --stim-gain 0.3 --adapt-k 3 --adapt-tau 10 --plast-rate 0
+scripts/phase3_summary.py experiments/out        # 探針時の m と g、応答を一覧
+
+# 窓アプリ。既定が cos 型・順応 10 秒なので、可塑性だけ指定すればよい。タイトルの g が今の反応の強さ
+./build-sdl/cave_window --wav 曲名 --stim-mode growth --stim-gain 0.3 --plast-rate 0.01 --plast-return 180
+```
+
+`metrics.csv` に `plast_g` 列が加わります。設計の理由は [decisions/0007](docs/decisions/0007_plastic_gain_and_artwork_defaults.md)。
+
 Linux でソースからビルドする場合は X11 の開発パッケージが要ります(一覧は [decisions/0003](docs/decisions/0003_sdl3_window_fetchcontent.md))。VM では仮想ディスプレイで、Mac では実機で動作を確認しています。Windows は未確認です。
 
 ## ドキュメントの地図
