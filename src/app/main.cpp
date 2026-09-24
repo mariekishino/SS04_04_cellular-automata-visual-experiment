@@ -32,6 +32,7 @@
 #include "core/presets.hpp"
 #include "io/colormap.hpp"
 #include "io/png.hpp"
+#include "io/audio_load.hpp"
 #include "io/wav.hpp"
 
 #ifndef CAVE_GIT_HASH
@@ -67,6 +68,8 @@ struct Args {
     std::string wav_path;
     double smooth_tau = 0.05;           // seconds, EMA on the RMS envelope
     double sps = 60.0;                  // simulation steps per real second (time base for the input)
+    std::string audio_dir = "experiments/audio";
+    bool list_audio = false;
 };
 
 void usage() {
@@ -85,7 +88,8 @@ void usage() {
         "  --stim none|pulse|wav     --stim-shape uniform|gradient_x\n"
         "  --stim-mode none|growth|mu --stim-gain G       (shortcuts for --set stim_mode= / stim_gain=)\n"
         "  --pulse-start S --pulse-dur S --pulse-period S --pulse-count N|-1 --pulse-amp A\n"
-        "  --wav FILE --smooth TAU_SECONDS --sps STEPS_PER_SECOND (time base, default 60)\n");
+        "  --wav FILE|NAME --audio-dir DIR (default experiments/audio; mp3/m4a/... are converted with ffmpeg)\n"
+        "  --list-audio              --smooth TAU_SECONDS --sps STEPS_PER_SECOND (time base, default 60)\n");
 }
 
 bool parse(int argc, char** argv, Args& a) {
@@ -120,6 +124,8 @@ bool parse(int argc, char** argv, Args& a) {
         else if (k == "--wav") { if (!need(a.wav_path)) return false; }
         else if (k == "--smooth") { if (!need(v)) return false; a.smooth_tau = std::stod(v); }
         else if (k == "--sps") { if (!need(v)) return false; a.sps = std::stod(v); }
+        else if (k == "--audio-dir") { if (!need(a.audio_dir)) return false; }
+        else if (k == "--list-audio") a.list_audio = true;
         else if (k == "--resume") a.resume = true;
         else if (k == "--list") a.list = true;
         else if (k == "--quiet") a.quiet = true;
@@ -177,6 +183,7 @@ void write_config(const Args& a, const Model& m, const std::string& path, const 
 int main(int argc, char** argv) {
     Args a;
     if (!parse(argc, argv, a)) { usage(); return 2; }
+    if (a.list_audio) { std::printf("audio files in %s:\n%s", a.audio_dir.c_str(), list_audio_dir(a.audio_dir).c_str()); return 0; }
     if (a.list) {
         std::printf("presets:\n");
         for (const auto& p : list_presets()) std::printf("  %-10s %-10s %s\n", p.model.c_str(), p.name.c_str(), p.description.c_str());
@@ -214,13 +221,14 @@ int main(int argc, char** argv) {
         source = std::make_unique<PulseSource>(a.pulse);
         input_record = source->describe();
     } else if (a.stim == "wav") {
-        WavData w; std::string err;
-        if (!read_wav(a.wav_path, w, &err)) { std::fprintf(stderr, "wav: %s: %s\n", a.wav_path.c_str(), err.c_str()); return 1; }
+        WavData w; std::string err; AudioLoadInfo li;
+        if (!load_audio(a.wav_path, a.audio_dir, w, &li, &err)) { std::fprintf(stderr, "audio: %s\n", err.c_str()); return 1; }
+        if (!a.quiet && li.converted) std::printf("audio: %s -> %s (ffmpeg, cached)\n", li.resolved_path.c_str(), li.wav_path.c_str());
         std::vector<float> raw = rms_envelope(w.mono, w.sample_rate, a.sps);
         wav_peak = normalize_peak(raw);
         std::vector<float> sm = smooth_ema(raw, a.sps, a.smooth_tau);
         std::ostringstream d;
-        d << "wav " << a.wav_path << " (" << w.sample_rate << " Hz, " << w.channels << " ch, " << w.bits << (w.is_float ? "-bit float" : "-bit PCM")
+        d << "wav " << li.resolved_path << (li.converted ? " [converted to " + li.wav_path + "]" : "") << " (" << w.sample_rate << " Hz, " << w.channels << " ch, " << w.bits << (w.is_float ? "-bit float" : "-bit PCM")
           << ", " << w.mono.size() << " frames) rms window 1/" << a.sps << " s, peak_rms " << wav_peak << " -> 1.0, ema tau " << a.smooth_tau << " s";
         input_record = d.str();
         source = std::make_unique<EnvelopeSource>(std::move(raw), std::move(sm), a.sps, input_record);

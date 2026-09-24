@@ -35,6 +35,7 @@
 #include "core/presets.hpp"
 #include "io/colormap.hpp"
 #include "io/png.hpp"
+#include "io/audio_load.hpp"
 #include "io/wav.hpp"
 
 using namespace cave;
@@ -58,6 +59,7 @@ struct Args {
     Overrides overrides;                 // stim_mode, stim_gain
     StimulusShape stim_shape = StimulusShape::Uniform;
     double smooth_tau = 0.05;
+    std::string audio_dir = "experiments/audio";
 };
 
 bool parse(int argc, char** argv, Args& a) {
@@ -84,6 +86,7 @@ bool parse(int argc, char** argv, Args& a) {
         else if (k == "--stim-gain") { if (!need(v)) return false; a.overrides["stim_gain"] = v; }
         else if (k == "--stim-shape") { if (!need(v)) return false; a.stim_shape = stimulus_shape_from_name(v.c_str()); }
         else if (k == "--smooth") { if (!need(v)) return false; a.smooth_tau = std::stod(v); }
+        else if (k == "--audio-dir") { if (!need(a.audio_dir)) return false; }
         else if (k == "--keys") {
             if (!need(v)) return false;
             std::size_t pos = 0;
@@ -105,7 +108,8 @@ bool parse(int argc, char** argv, Args& a) {
 void usage() {
     std::printf("usage: cave_window [--model M --preset P --init I --seed N --width W --height H --scale S --sps N]\n"
                 "                   [--frames N --keys \"f:key,...\" --shot-dir DIR --shot-every K --report SEC]\n"
-                "                   [--wav FILE --stim-mode growth|mu --stim-gain G --stim-shape uniform|gradient_x --smooth TAU]\n"
+                "                   [--wav FILE|NAME --audio-dir DIR --stim-mode growth|mu --stim-gain G --stim-shape uniform|gradient_x --smooth TAU]\n"
+                "  NAME is looked up in --audio-dir (default experiments/audio); mp3/m4a/... are converted with ffmpeg once and cached\n"
                 "keys: space pause/resume, n step, r reset, s screenshot, +/- speed, q quit\n");
 }
 
@@ -162,8 +166,9 @@ int main(int argc, char** argv) {
     WavData wav;
     std::unique_ptr<EnvelopeSource> envelope;
     if (!a.wav_path.empty()) {
-        std::string err;
-        if (!read_wav(a.wav_path, wav, &err)) { std::fprintf(stderr, "wav: %s: %s\n", a.wav_path.c_str(), err.c_str()); return 1; }
+        std::string err; AudioLoadInfo li;
+        if (!load_audio(a.wav_path, a.audio_dir, wav, &li, &err)) { std::fprintf(stderr, "audio: %s\n", err.c_str()); return 1; }
+        if (li.converted) std::printf("audio: %s -> %s (ffmpeg, cached)\n", li.resolved_path.c_str(), li.wav_path.c_str());
         std::vector<float> raw = rms_envelope(wav.mono, wav.sample_rate, a.sps);
         const float peak = normalize_peak(raw);
         std::vector<float> sm = smooth_ema(raw, a.sps, a.smooth_tau);

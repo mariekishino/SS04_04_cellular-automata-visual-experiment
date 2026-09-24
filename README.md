@@ -46,9 +46,13 @@ cmake --build build-sdl -j --target cave_window
 
 ### 音の刺激(Phase 2)
 
+音源は `experiments/audio/` に置いて名前で指定します(git 管理外)。MP3 / m4a / ogg などは初回に ffmpeg で WAV に変換し、隣にキャッシュします(macOS は `brew install ffmpeg`)。
+
 ```bash
 python3 scripts/gen_test_wav.py experiments/audio        # kick120.wav / tone.wav / silence.wav を生成
-scripts/to_wav.sh song.mp3                               # MP3 などを WAV に変換(ffmpeg)
+cp ~/Downloads/song.mp3 experiments/audio/               # Suno などの MP3 をそのまま置く
+./build/cave --list-audio                                # 置いてある音源の一覧
+./build-sdl/cave_window --wav song --stim-mode growth --stim-gain 0.2 --stim-shape gradient_x   # 名前だけで指定
 
 # CLI: 合成パルス(t=2 s から 0.5 秒)を成長関数に加算、無音の基準と比較
 ./build/cave --out experiments/out/base  --steps 1200 --every 20
@@ -58,8 +62,8 @@ scripts/compare_runs.py experiments/out/base experiments/out/pulse
 # CLI: WAV の RMS 包絡で mu を変調
 ./build/cave --out experiments/out/wav --steps 720 --every 20 --stim wav --wav experiments/audio/kick120.wav --stim-mode mu --stim-gain 0.01 --stim-shape gradient_x
 
-# 窓アプリ: WAV を再生しながら、再生クロックに合わせて刺激を与える
-./build-sdl/cave_window --wav experiments/audio/kick120.wav --stim-mode growth --stim-gain 0.2
+# 窓アプリ: WAV を再生しながら、再生クロックに合わせて刺激を与える(パスでも名前でも可)
+./build-sdl/cave_window --wav kick120 --stim-mode growth --stim-gain 0.2
 ```
 
 各 run の `stimulus.csv` に毎ステップの振幅、`metrics.csv` に進行方向(`heading_deg`)と区間平均の刺激(`stim_mean`)が加わります。設計の理由は [decisions/0005](docs/decisions/0005_stimulus_path_and_audio.md)。

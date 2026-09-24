@@ -50,6 +50,7 @@ add_library(cave_io
   src/io/png.cpp
   src/io/colormap.cpp
   src/io/wav.cpp
+  src/io/audio_load.cpp
 )
 target_link_libraries(cave_io PUBLIC cave_core)
 target_compile_options(cave_io PRIVATE -Wall -Wextra -Wpedantic)
