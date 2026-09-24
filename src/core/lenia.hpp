@@ -13,6 +13,9 @@
 //   G(u)     = 2 exp(-(u - mu)^2 / (2 sigma^2)) - 1  (growth in [-1, 1])
 //   A'(x)    = clip(A(x) + dt * G(U(x)), 0, 1)       (dt = 1 / T)
 //
+// Stimulus (Phase 2): see StimMode. With amplitude 0 the update is identical
+// to the stimulus-free one, bit for bit.
+//
 // Cost per step: W * H * (2R+1)^2 multiply-adds.
 
 #include <string>
@@ -22,12 +25,22 @@
 
 namespace cave {
 
+enum class StimMode {
+    None,    // stimulus ignored
+    Growth,  // A' = clip(A + dt * (G(U) + gain * s * h(x)))
+    Mu       // mu_eff(x) = mu + gain * s * h(x)
+};
+const char* stim_mode_name(StimMode m);
+StimMode stim_mode_from_name(const char* s);
+
 struct LeniaParams {
     int R = 13;             // kernel radius in cells
     float mu = 0.15f;       // growth center
     float sigma = 0.015f;   // growth width
     float dt = 0.1f;        // time step = 1 / T
     Boundary boundary = Boundary::Periodic;
+    StimMode stim_mode = StimMode::None;
+    float stim_gain = 0.0f; // Growth: added to G (G is in [-1,1]); Mu: added to mu (mu is 0.15)
 };
 
 class Lenia : public Model {
@@ -35,7 +48,8 @@ public:
     Lenia(int width, int height, const LeniaParams& p);
 
     std::string name() const override { return "lenia"; }
-    void step() override;
+    void step(const Stimulus& stim) override;
+    using Model::step;
     float dt() const override { return p_.dt; }
     Boundary boundary() const override { return p_.boundary; }
     std::vector<Channel> channels() const override;

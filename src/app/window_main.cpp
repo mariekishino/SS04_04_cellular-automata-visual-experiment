@@ -8,6 +8,10 @@
 //        S screenshot          + / - double / halve steps per second
 //        Q or Esc quit
 //
+// Phase 2: --wav FILE plays the file and drives the stimulus from the audio
+// clock (bytes played so far), so what you hear and what the model receives
+// stay aligned. --stim-mode/--stim-gain/--stim-shape choose the entry point.
+//
 // Headless verification (no keyboard):  --frames N quits after N frames,
 // --keys "60:space,70:n,..." injects key presses at given frames,
 // --shot-dir DIR saves a screenshot every --shot-every frames.
@@ -25,11 +29,14 @@
 
 #include <sys/stat.h>
 
+#include "core/input.hpp"
 #include "core/metrics.hpp"
 #include "core/model.hpp"
 #include "core/presets.hpp"
 #include "io/colormap.hpp"
 #include "io/png.hpp"
+#include "io/audio_load.hpp"
+#include "io/wav.hpp"
 
 using namespace cave;
 
@@ -47,6 +54,12 @@ struct Args {
     long shot_every = 0;       // 0: only on key S
     std::vector<std::pair<long, std::string>> keys;
     double report_seconds = 1.0;
+    // Phase 2
+    std::string wav_path;
+    Overrides overrides;                 // stim_mode, stim_gain
+    StimulusShape stim_shape = StimulusShape::Uniform;
+    double smooth_tau = 0.05;
+    std::string audio_dir = "experiments/audio";
 };
 
 bool parse(int argc, char** argv, Args& a) {
@@ -68,6 +81,12 @@ bool parse(int argc, char** argv, Args& a) {
         else if (k == "--frames") { if (!need(v)) return false; a.frames = std::stol(v); }
         else if (k == "--shot-every") { if (!need(v)) return false; a.shot_every = std::stol(v); }
         else if (k == "--report") { if (!need(v)) return false; a.report_seconds = std::stod(v); }
+        else if (k == "--wav") { if (!need(a.wav_path)) return false; }
+        else if (k == "--stim-mode") { if (!need(v)) return false; a.overrides["stim_mode"] = v; }
+        else if (k == "--stim-gain") { if (!need(v)) return false; a.overrides["stim_gain"] = v; }
+        else if (k == "--stim-shape") { if (!need(v)) return false; a.stim_shape = stimulus_shape_from_name(v.c_str()); }
+        else if (k == "--smooth") { if (!need(v)) return false; a.smooth_tau = std::stod(v); }
+        else if (k == "--audio-dir") { if (!need(a.audio_dir)) return false; }
         else if (k == "--keys") {
             if (!need(v)) return false;
             std::size_t pos = 0;
@@ -89,6 +108,8 @@ bool parse(int argc, char** argv, Args& a) {
 void usage() {
     std::printf("usage: cave_window [--model M --preset P --init I --seed N --width W --height H --scale S --sps N]\n"
                 "                   [--frames N --keys \"f:key,...\" --shot-dir DIR --shot-every K --report SEC]\n"
+                "                   [--wav FILE|NAME --audio-dir DIR --stim-mode growth|mu --stim-gain G --stim-shape uniform|gradient_x --smooth TAU]\n"
+                "  NAME is looked up in --audio-dir (default experiments/audio); mp3/m4a/... are converted with ffmpeg once and cached\n"
                 "keys: space pause/resume, n step, r reset, s screenshot, +/- speed, q quit\n");
 }
 
@@ -135,13 +156,47 @@ int main(int argc, char** argv) {
 
     std::unique_ptr<Model> model;
     auto make = [&]() {
-        model = make_model(a.model, a.preset, a.width, a.height, Boundary::Periodic, {});
+        model = make_model(a.model, a.preset, a.width, a.height, Boundary::Periodic, a.overrides);
         apply_init(*model, a.init, a.seed);
     };
     try { make(); } catch (const std::exception& e) { std::fprintf(stderr, "error: %s\n", e.what()); return 1; }
     mkdir_p(a.shot_dir);
 
-    if (!SDL_Init(SDL_INIT_VIDEO)) { std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError()); return 1; }
+    // --- audio + envelope (Phase 2) ---
+    WavData wav;
+    std::unique_ptr<EnvelopeSource> envelope;
+    if (!a.wav_path.empty()) {
+        std::string err; AudioLoadInfo li;
+        if (!load_audio(a.wav_path, a.audio_dir, wav, &li, &err)) { std::fprintf(stderr, "audio: %s\n", err.c_str()); return 1; }
+        if (li.converted) std::printf("audio: %s -> %s (ffmpeg, cached)\n", li.resolved_path.c_str(), li.wav_path.c_str());
+        std::vector<float> raw = rms_envelope(wav.mono, wav.sample_rate, a.sps);
+        const float peak = normalize_peak(raw);
+        std::vector<float> sm = smooth_ema(raw, a.sps, a.smooth_tau);
+        std::printf("wav %s: %d Hz, %zu frames, %.2f s, peak rms %.4f -> 1.0, ema tau %.3f s, envelope at %.0f/s\n",
+                    a.wav_path.c_str(), wav.sample_rate, wav.mono.size(), static_cast<double>(wav.mono.size()) / wav.sample_rate, peak, a.smooth_tau, a.sps);
+        envelope = std::make_unique<EnvelopeSource>(std::move(raw), std::move(sm), a.sps, a.wav_path);
+    }
+    const SDL_InitFlags init_flags = SDL_INIT_VIDEO | (envelope ? SDL_INIT_AUDIO : 0);
+    if (!SDL_Init(init_flags)) { std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError()); return 1; }
+    SDL_AudioStream* audio = nullptr;
+    std::size_t audio_bytes_total = 0;
+    if (envelope) {
+        SDL_AudioSpec spec{};
+        spec.format = SDL_AUDIO_F32;
+        spec.channels = 1;
+        spec.freq = wav.sample_rate;
+        audio = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
+        if (!audio) { std::fprintf(stderr, "SDL_OpenAudioDeviceStream: %s\n", SDL_GetError()); return 1; }
+        audio_bytes_total = wav.mono.size() * sizeof(float);
+        SDL_PutAudioStreamData(audio, wav.mono.data(), static_cast<int>(audio_bytes_total));
+        std::printf("audio driver: %s\n", SDL_GetCurrentAudioDriver());
+    }
+    // Seconds of audio played so far, from the device clock. Master clock when --wav is given.
+    auto audio_seconds = [&]() -> double {
+        const int queued = SDL_GetAudioStreamQueued(audio);
+        const std::size_t played = audio_bytes_total - static_cast<std::size_t>(std::max(0, queued));
+        return static_cast<double>(played) / (sizeof(float) * static_cast<double>(wav.sample_rate));
+    };
     SDL_Window* win = nullptr;
     SDL_Renderer* ren = nullptr;
     if (!SDL_CreateWindowAndRenderer("cave", a.width * a.scale, a.height * a.scale, 0, &win, &ren)) {
@@ -160,6 +215,8 @@ int main(int argc, char** argv) {
     }
 
     bool running = true, paused = false;
+    if (audio) SDL_ResumeAudioStreamDevice(audio);  // start playing with the simulation
+    unsigned long long steps_at_reset = 0;         // audio-driven mode: step count when playback started
     double accumulator = 0.0;  // seconds of simulation time owed
     const int max_steps_per_frame = 64;  // cap catch-up so a stall does not spiral
     Uint64 last_ns = SDL_GetTicksNS();
@@ -176,9 +233,9 @@ int main(int argc, char** argv) {
     };
     auto handle_key = [&](SDL_Keycode key) {
         switch (key) {
-            case SDLK_SPACE: paused = !paused; accumulator = 0.0; std::printf("%s at step %llu\n", paused ? "PAUSED" : "RESUMED", static_cast<unsigned long long>(model->step_count())); break;
+            case SDLK_SPACE: paused = !paused; accumulator = 0.0; if (audio) { if (paused) SDL_PauseAudioStreamDevice(audio); else SDL_ResumeAudioStreamDevice(audio); } std::printf("%s at step %llu\n", paused ? "PAUSED" : "RESUMED", static_cast<unsigned long long>(model->step_count())); break;
             case SDLK_N: if (paused) { model->step(); std::printf("step -> %llu\n", static_cast<unsigned long long>(model->step_count())); } break;
-            case SDLK_R: make(); accumulator = 0.0; std::printf("RESET (seed %u)\n", a.seed); break;
+            case SDLK_R: make(); accumulator = 0.0; if (audio) { SDL_ClearAudioStream(audio); SDL_PutAudioStreamData(audio, wav.mono.data(), static_cast<int>(audio_bytes_total)); steps_at_reset = 0; } std::printf("RESET (seed %u)\n", a.seed); break;
             case SDLK_S: shot(); break;
             case SDLK_PLUS: case SDLK_EQUALS: case SDLK_KP_PLUS: a.sps *= 2.0; std::printf("steps/s = %.1f\n", a.sps); break;
             case SDLK_MINUS: case SDLK_KP_MINUS: a.sps = std::max(1.0, a.sps / 2.0); std::printf("steps/s = %.1f\n", a.sps); break;
@@ -208,15 +265,28 @@ int main(int argc, char** argv) {
         const double frame_dt = static_cast<double>(now_ns - last_ns) * 1e-9;
         last_ns = now_ns;
         if (!paused) {
-            accumulator += frame_dt;
-            const double step_period = 1.0 / a.sps;
-            int n = 0;
-            while (accumulator >= step_period && n < max_steps_per_frame) {
-                model->step();
-                accumulator -= step_period;
-                ++n;
+            auto do_step = [&]() {
+                Stimulus stim;
+                stim.shape = a.stim_shape;
+                if (envelope) stim.amplitude = envelope->amplitude(static_cast<double>(model->step_count()) / a.sps);
+                model->step(stim);
+            };
+            if (audio) {
+                // audio clock is the master: run the steps that the played audio time calls for
+                const unsigned long long target = steps_at_reset + static_cast<unsigned long long>(audio_seconds() * a.sps);
+                int n = 0;
+                while (model->step_count() < target && n < max_steps_per_frame) { do_step(); ++n; }
+            } else {
+                accumulator += frame_dt;
+                const double step_period = 1.0 / a.sps;
+                int n = 0;
+                while (accumulator >= step_period && n < max_steps_per_frame) {
+                    do_step();
+                    accumulator -= step_period;
+                    ++n;
+                }
+                if (n == max_steps_per_frame) accumulator = 0.0;  // drop the backlog instead of chasing it
             }
-            if (n == max_steps_per_frame) accumulator = 0.0;  // drop the backlog instead of chasing it
         }
 
         // --- draw ---
@@ -233,8 +303,10 @@ int main(int argc, char** argv) {
             report_acc = 0.0;
             const ShapeMetrics sh = compute_shape(g, model->boundary(), a.threshold);
             char title[160];
-            std::snprintf(title, sizeof(title), "cave  %s  step %llu  t=%.1f  %.0f steps/s  mass %.1f  comp %zu", paused ? "PAUSED" : "RUN",
-                          static_cast<unsigned long long>(model->step_count()), model->time(), a.sps, sh.mass, sh.components);
+            const float amp_now = envelope ? envelope->amplitude(static_cast<double>(model->step_count()) / a.sps) : 0.0f;
+            std::snprintf(title, sizeof(title), "cave  %s  step %llu  t=%.1f  %.0f steps/s  mass %.1f  comp %zu  stim %.2f%s", paused ? "PAUSED" : "RUN",
+                          static_cast<unsigned long long>(model->step_count()), model->time(), a.sps, sh.mass, sh.components, amp_now,
+                          audio ? "  (audio clock)" : "");
             SDL_SetWindowTitle(win, title);
             std::printf("frame %ld  %s\n", frame, title);
         }
@@ -245,6 +317,7 @@ int main(int argc, char** argv) {
         SDL_Delay(1);
     }
 
+    if (audio) SDL_DestroyAudioStream(audio);
     SDL_DestroyTexture(tex);
     SDL_DestroyRenderer(ren);
     SDL_DestroyWindow(win);

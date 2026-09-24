@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "core/grid.hpp"
+#include "core/stimulus.hpp"
 
 namespace cave {
 
@@ -26,8 +27,10 @@ public:
 
     virtual std::string name() const = 0;
 
-    // Advance by one fixed time step dt().
-    virtual void step() = 0;
+    // Advance by one fixed time step dt() under the given stimulus.
+    // step() with no argument is the stimulus-free update (Phase 0/1 behaviour).
+    virtual void step(const Stimulus& stim) = 0;
+    void step() { step(Stimulus::none()); }
 
     virtual float dt() const = 0;
     virtual Boundary boundary() const = 0;

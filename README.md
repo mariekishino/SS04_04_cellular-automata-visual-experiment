@@ -6,14 +6,14 @@
 ## 3行で言うと
 
 - **何を作るか:** まとまりを保ちながら流体のように動く視覚的存在。音はスイッチではなく環境入力。
-- **今どこか:** **Phase 1(無音でも動く身体)**。Phase 0 で Lenia 型と Gray–Scott を比較し、Lenia 型を採用した。
-- **次に何をするか:** Orbium を長く観察できる窓アプリを作り、まとまりと動きを数値で言えるようにする。
+- **今どこか:** **Phase 2(音への即時応答)**。Phase 1 で Orbium が無音でも動き続ける身体になった。
+- **次に何をするか:** 合成パルスと WAV から刺激を作り、内部更新に作用させて、無音との差と停止後の減衰を測る。
 
 ## 現在のフェーズ
 
-**Phase 1 — 無音でも動く身体** → [docs/phases/01_autonomous_body.md](docs/phases/01_autonomous_body.md)
+**Phase 2 — 音への即時応答** → [docs/phases/02_sound_response.md](docs/phases/02_sound_response.md)
 
-Phase 0 は完了(報告: [docs/phases/00_report.md](docs/phases/00_report.md))。採用モデルは Lenia 型(Orbium、周期境界)。
+Phase 0・1 は完了(報告: [Phase 0](docs/phases/00_report.md)、[Phase 1](docs/phases/01_report.md))。採用モデルは Lenia 型(Orbium、周期境界、64×64)。
 
 フェーズを進めるときは、この節だけを書き換えます。コーディングエージェントはこの節を「今の作業範囲」として読みます([CLAUDE.md](CLAUDE.md) 参照)。
 
@@ -44,6 +44,30 @@ cmake --build build-sdl -j --target cave_window
 
 キー: Space 停止/再開、N 1 ステップ(停止中)、R 同じ seed でリセット、S スクリーンショット、+/- 速度を 2 倍/半分、Q 終了。タイトルバーにステップ数・速度・総量・連結成分数が出ます。
 
+### 音の刺激(Phase 2)
+
+音源は `experiments/audio/` に置いて名前で指定します(git 管理外)。MP3 / m4a / ogg などは初回に ffmpeg で WAV に変換し、隣にキャッシュします(macOS は `brew install ffmpeg`)。
+
+```bash
+python3 scripts/gen_test_wav.py experiments/audio        # kick120.wav / tone.wav / silence.wav を生成
+cp ~/Downloads/song.mp3 experiments/audio/               # Suno などの MP3 をそのまま置く
+./build/cave --list-audio                                # 置いてある音源の一覧
+./build-sdl/cave_window --wav song --stim-mode growth --stim-gain 0.2 --stim-shape gradient_x   # 名前だけで指定
+
+# CLI: 合成パルス(t=2 s から 0.5 秒)を成長関数に加算、無音の基準と比較
+./build/cave --out experiments/out/base  --steps 1200 --every 20
+./build/cave --out experiments/out/pulse --steps 1200 --every 20 --stim pulse --stim-mode growth --stim-gain 0.2 --pulse-start 2 --pulse-dur 0.5
+scripts/compare_runs.py experiments/out/base experiments/out/pulse
+
+# CLI: WAV の RMS 包絡で mu を変調
+./build/cave --out experiments/out/wav --steps 720 --every 20 --stim wav --wav experiments/audio/kick120.wav --stim-mode mu --stim-gain 0.01 --stim-shape gradient_x
+
+# 窓アプリ: WAV を再生しながら、再生クロックに合わせて刺激を与える(パスでも名前でも可)
+./build-sdl/cave_window --wav kick120 --stim-mode growth --stim-gain 0.2
+```
+
+各 run の `stimulus.csv` に毎ステップの振幅、`metrics.csv` に進行方向(`heading_deg`)と区間平均の刺激(`stim_mean`)が加わります。設計の理由は [decisions/0005](docs/decisions/0005_stimulus_path_and_audio.md)。
+
 Linux でソースからビルドする場合は X11 の開発パッケージが要ります(一覧は [decisions/0003](docs/decisions/0003_sdl3_window_fetchcontent.md))。VM では仮想ディスプレイで、Mac では実機で動作を確認しています。Windows は未確認です。
 
 ## ドキュメントの地図
@@ -57,7 +81,7 @@ Linux でソースからビルドする場合は X11 の開発パッケージが
 | 本人 | [docs/04_development_workflow.md](docs/04_development_workflow.md) | 1 フェーズをどう回すか(人間側の手順) |
 | 実装者 | [docs/01_architecture.md](docs/01_architecture.md) | 技術方針、責務の境界、性能の考え方 |
 | 実装者 | [docs/02_experiment_protocol.md](docs/02_experiment_protocol.md) | 何を記録し、何を測るか |
-| 実装者 | [docs/phases/](docs/phases/) | 各フェーズの具体的な実装範囲と完了条件。報告: [Phase 0](docs/phases/00_report.md)、[Phase 1](docs/phases/01_report.md) |
+| 実装者 | [docs/phases/](docs/phases/) | 各フェーズの具体的な実装範囲と完了条件。報告: [Phase 0](docs/phases/00_report.md)、[Phase 1](docs/phases/01_report.md)、[Phase 2](docs/phases/02_report.md) |
 | 実装者 | [docs/decisions/](docs/decisions/) | 後から変えるときに理由が要る決定 |
 | 本人 | [docs/learning/](docs/learning/) | C++ とモデルの学習メモ |
 | 本人 | [docs/future/](docs/future/) | 今は範囲外の将来構想 |

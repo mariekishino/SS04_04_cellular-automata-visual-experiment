@@ -34,7 +34,8 @@ public:
     GrayScott(int width, int height, const GrayScottParams& p);
 
     std::string name() const override { return "grayscott"; }
-    void step() override;
+    void step(const Stimulus& stim) override;  // stimulus is ignored (recorded in parameters())
+    using Model::step;
     float dt() const override { return p_.dt; }
     Boundary boundary() const override { return p_.boundary; }
     std::vector<Channel> channels() const override;

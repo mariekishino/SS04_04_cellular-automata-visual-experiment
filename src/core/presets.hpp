@@ -22,7 +22,7 @@ struct PresetInfo {
 std::vector<PresetInfo> list_presets();
 std::vector<PresetInfo> list_inits();
 
-// key=value overrides: for lenia R,mu,sigma,dt ; for grayscott Du,Dv,F,k,dt.
+// key=value overrides: for lenia R,mu,sigma,dt,stim_mode,stim_gain ; for grayscott Du,Dv,F,k,dt.
 using Overrides = std::map<std::string, std::string>;
 
 std::unique_ptr<Model> make_model(const std::string& model, const std::string& preset, int width, int height,

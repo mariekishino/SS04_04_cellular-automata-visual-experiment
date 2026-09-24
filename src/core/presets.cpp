@@ -50,6 +50,8 @@ std::unique_ptr<Model> make_model(const std::string& model, const std::string& p
         p.sigma = get_f(ov, "sigma", p.sigma);
         p.dt = get_f(ov, "dt", p.dt);
         p.boundary = boundary;
+        if (auto it = ov.find("stim_mode"); it != ov.end()) p.stim_mode = stim_mode_from_name(it->second.c_str());
+        p.stim_gain = get_f(ov, "stim_gain", p.stim_gain);
         return std::make_unique<Lenia>(width, height, p);
     }
     if (model == "grayscott") {

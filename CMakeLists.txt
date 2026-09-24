@@ -35,6 +35,8 @@ message(STATUS "code_version = ${CAVE_GIT_HASH}")
 add_library(cave_core
   src/core/grid.cpp
   src/core/model.cpp
+  src/core/stimulus.cpp
+  src/core/input.cpp
   src/core/lenia.cpp
   src/core/gray_scott.cpp
   src/core/metrics.cpp
@@ -47,6 +49,8 @@ target_compile_options(cave_core PRIVATE -Wall -Wextra -Wpedantic)
 add_library(cave_io
   src/io/png.cpp
   src/io/colormap.cpp
+  src/io/wav.cpp
+  src/io/audio_load.cpp
 )
 target_link_libraries(cave_io PUBLIC cave_core)
 target_compile_options(cave_io PRIVATE -Wall -Wextra -Wpedantic)
@@ -69,8 +73,8 @@ if(CAVE_WITH_SDL3)
     set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
     set(SDL_TESTS OFF CACHE BOOL "" FORCE)
     set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
-    # Phase 1 needs only video. Audio comes back in Phase 2.
-    set(SDL_AUDIO OFF CACHE BOOL "" FORCE)
+    # Phase 2: video + audio (WAV playback in cave_window). Other subsystems stay off.
+    set(SDL_AUDIO ON CACHE BOOL "" FORCE)
     set(SDL_CAMERA OFF CACHE BOOL "" FORCE)
     set(SDL_GPU OFF CACHE BOOL "" FORCE)
     set(SDL_HAPTIC OFF CACHE BOOL "" FORCE)
@@ -90,7 +94,7 @@ endif()
 
 # --- tests ---
 enable_testing()
-foreach(t test_grid test_lenia test_gray_scott test_metrics test_shape test_png test_determinism)
+foreach(t test_grid test_lenia test_gray_scott test_metrics test_shape test_png test_determinism test_stimulus test_input)
   add_executable(${t} tests/${t}.cpp)
   target_link_libraries(${t} PRIVATE cave_core cave_io)
   add_test(NAME ${t} COMMAND ${t})
