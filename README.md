@@ -68,6 +68,22 @@ scripts/compare_runs.py experiments/out/base experiments/out/pulse
 
 各 run の `stimulus.csv` に毎ステップの振幅、`metrics.csv` に進行方向(`heading_deg`)と区間平均の刺激(`stim_mean`)が加わります。設計の理由は [decisions/0005](docs/decisions/0005_stimulus_path_and_audio.md)。
 
+### 履歴(Phase 3、順応)
+
+```bash
+# 密なパルス列(0〜20 s)の後、2 秒の無音を置いて 22 s に探針。順応 k=3、時定数 10 s
+./build/cave --out experiments/out/h2 --steps 1620 --every 30 --stim pulse --pulse-start 1 --pulse-dur 0.5 --pulse-period 1 --pulse-count 19 \
+  --probe-at 22 --probe-dur 0.5 --stim-mode growth --stim-gain 0.3 --adapt-k 3 --adapt-tau 10
+# 同じ探針を、無音の履歴の後に
+./build/cave --out experiments/out/h0 --steps 1620 --every 30 --stim none --probe-at 22 --probe-dur 0.5 --stim-mode growth --stim-gain 0.3 --adapt-k 3 --adapt-tau 10
+scripts/phase3_summary.py experiments/out          # 探針応答(総量増)と探針時の m を一覧
+
+# 窓アプリで曲を聞きながら順応を見る(タイトルの m が遅い状態変数)
+./build-sdl/cave_window --wav 曲名 --stim-mode growth --stim-gain 0.3 --stim-shape cos_x --adapt-k 3 --adapt-tau 10
+```
+
+`metrics.csv` に `adapt_m` 列が加わります。`--wav-until T` で曲を T 秒以降無音にでき、`--stim-shape cos_x` は周期境界で連続な形です。設計の理由は [decisions/0006](docs/decisions/0006_adaptation_as_history.md)。
+
 Linux でソースからビルドする場合は X11 の開発パッケージが要ります(一覧は [decisions/0003](docs/decisions/0003_sdl3_window_fetchcontent.md))。VM では仮想ディスプレイで、Mac では実機で動作を確認しています。Windows は未確認です。
 
 ## ドキュメントの地図
