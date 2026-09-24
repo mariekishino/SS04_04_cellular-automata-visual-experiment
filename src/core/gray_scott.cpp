@@ -18,7 +18,7 @@ float GrayScott::laplacian(const Grid& g, int x, int y, Boundary b, float outsid
     return -c + 0.2f * e + 0.05f * d;
 }
 
-void GrayScott::step() {
+void GrayScott::step(const Stimulus& /*stim*/) {
     const int W = u_.width(), H = u_.height();
     const Boundary b = p_.boundary;
     for (int y = 0; y < H; ++y) {
@@ -46,6 +46,7 @@ std::vector<std::pair<std::string, std::string>> GrayScott::parameters() const {
     return {
         {"Du", f(p_.Du)}, {"Dv", f(p_.Dv)}, {"F", f(p_.F)}, {"k", f(p_.k)}, {"dt", f(p_.dt)},
         {"laplacian", "9-point: center -1, edge 0.2, corner 0.05"},
+        {"stim_mode", "none (Gray-Scott ignores stimulus in Phase 2)"},
     };
 }
 

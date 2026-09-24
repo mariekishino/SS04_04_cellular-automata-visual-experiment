@@ -70,3 +70,6 @@ Testing/
 
 # experiment outputs (frames, videos, checkpoints)
 experiments/out/
+
+# generated test audio
+experiments/audio/

@@ -4,6 +4,7 @@
 #include <cmath>
 #include <istream>
 #include <ostream>
+#include <cstring>
 #include <sstream>
 
 namespace cave {
@@ -55,12 +56,30 @@ void Lenia::build_index_tables() {
     }
 }
 
-void Lenia::step() {
+const char* stim_mode_name(StimMode m) {
+    switch (m) {
+        case StimMode::None: return "none";
+        case StimMode::Growth: return "growth";
+        case StimMode::Mu: return "mu";
+    }
+    return "none";
+}
+
+StimMode stim_mode_from_name(const char* s) {
+    if (std::strcmp(s, "growth") == 0) return StimMode::Growth;
+    if (std::strcmp(s, "mu") == 0) return StimMode::Mu;
+    return StimMode::None;
+}
+
+void Lenia::step(const Stimulus& stim) {
     const int R = p_.R;
     const int K = 2 * R + 1;
     const int W = a_.width(), H = a_.height();
     const float* a = a_.raw().data();
     float* out = next_.raw().data();
+    // drive = gain * s(t). Exactly 0 when there is no stimulus or the mode is None,
+    // so the branch below leaves the Phase 1 arithmetic untouched.
+    const float drive = (p_.stim_mode == StimMode::None) ? 0.0f : p_.stim_gain * stim.amplitude;
 
     for (int y = 0; y < H; ++y) {
         for (int x = 0; x < W; ++x) {
@@ -77,7 +96,13 @@ void Lenia::step() {
                     u += static_cast<double>(krow[dx + R]) * row[xx];
                 }
             }
-            const float g = growth(static_cast<float>(u), p_.mu, p_.sigma);
+            float g;
+            if (drive != 0.0f && p_.stim_mode == StimMode::Mu) {
+                g = growth(static_cast<float>(u), p_.mu + drive * stimulus_weight(stim.shape, x, y, W, H), p_.sigma);
+            } else {
+                g = growth(static_cast<float>(u), p_.mu, p_.sigma);
+                if (drive != 0.0f) g += drive * stimulus_weight(stim.shape, x, y, W, H);  // Growth mode
+            }
             const float v = a[static_cast<std::size_t>(y) * W + x] + p_.dt * g;
             out[static_cast<std::size_t>(y) * W + x] = std::min(1.0f, std::max(0.0f, v));
         }
@@ -99,6 +124,8 @@ std::vector<std::pair<std::string, std::string>> Lenia::parameters() const {
         {"dt", f(p_.dt)},
         {"kernel_core", "exp(4 - 1/(r(1-r)))"},
         {"growth", "2 exp(-(u-mu)^2 / (2 sigma^2)) - 1"},
+        {"stim_mode", stim_mode_name(p_.stim_mode)},
+        {"stim_gain", f(p_.stim_gain)},
     };
 }
 

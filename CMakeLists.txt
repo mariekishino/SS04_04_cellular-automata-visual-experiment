@@ -35,6 +35,7 @@ message(STATUS "code_version = ${CAVE_GIT_HASH}")
 add_library(cave_core
   src/core/grid.cpp
   src/core/model.cpp
+  src/core/stimulus.cpp
   src/core/lenia.cpp
   src/core/gray_scott.cpp
   src/core/metrics.cpp
@@ -90,7 +91,7 @@ endif()
 
 # --- tests ---
 enable_testing()
-foreach(t test_grid test_lenia test_gray_scott test_metrics test_shape test_png test_determinism)
+foreach(t test_grid test_lenia test_gray_scott test_metrics test_shape test_png test_determinism test_stimulus)
   add_executable(${t} tests/${t}.cpp)
   target_link_libraries(${t} PRIVATE cave_core cave_io)
   add_test(NAME ${t} COMMAND ${t})
