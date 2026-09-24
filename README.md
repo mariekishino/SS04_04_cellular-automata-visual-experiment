@@ -6,14 +6,14 @@
 ## 3行で言うと
 
 - **何を作るか:** まとまりを保ちながら流体のように動く視覚的存在。音はスイッチではなく環境入力。
-- **今どこか:** **Phase 1(無音でも動く身体)**。Phase 0 で Lenia 型と Gray–Scott を比較し、Lenia 型を採用した。
-- **次に何をするか:** Orbium を長く観察できる窓アプリを作り、まとまりと動きを数値で言えるようにする。
+- **今どこか:** **Phase 2(音への即時応答)**。Phase 1 で Orbium が無音でも動き続ける身体になった。
+- **次に何をするか:** 合成パルスと WAV から刺激を作り、内部更新に作用させて、無音との差と停止後の減衰を測る。
 
 ## 現在のフェーズ
 
-**Phase 1 — 無音でも動く身体** → [docs/phases/01_autonomous_body.md](docs/phases/01_autonomous_body.md)
+**Phase 2 — 音への即時応答** → [docs/phases/02_sound_response.md](docs/phases/02_sound_response.md)
 
-Phase 0 は完了(報告: [docs/phases/00_report.md](docs/phases/00_report.md))。採用モデルは Lenia 型(Orbium、周期境界)。
+Phase 0・1 は完了(報告: [Phase 0](docs/phases/00_report.md)、[Phase 1](docs/phases/01_report.md))。採用モデルは Lenia 型(Orbium、周期境界、64×64)。
 
 フェーズを進めるときは、この節だけを書き換えます。コーディングエージェントはこの節を「今の作業範囲」として読みます([CLAUDE.md](CLAUDE.md) 参照)。
 
