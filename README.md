@@ -64,3 +64,7 @@ scripts/make_media.sh experiments/out/L1    # video.mp4 と sheet.png を作る
 | Gray–Scott の離散化と定数 | [Karl Sims, Reaction-Diffusion Tutorial](https://www.karlsims.com/rd.html) | 9 点ラプラシアンの重み、Du, Dv, dt、coral / mitosis の F, k |
 
 Grid、指標、PNG 出力、CLI、テスト、実験の設計はこのリポジトリで書いたものです。
+
+## ライセンス
+
+[MIT License](LICENSE)。同梱している Orbium のデータは Chakazul/Lenia 由来で、同じく MIT です。
