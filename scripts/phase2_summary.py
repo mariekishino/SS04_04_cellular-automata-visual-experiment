@@ -4,7 +4,10 @@ import csv, glob, os, sys
 out = sys.argv[1] if len(sys.argv) > 1 else "experiments/out/phase2"
 def load(d): return list(csv.DictReader(open(os.path.join(d, "metrics.csv"))))
 def ang(a, b): return (a - b + 180.0) % 360.0 - 180.0
-base = {len(load(os.path.join(out, b))): load(os.path.join(out, b)) for b in ("baseline", "baseline720")}
+base = {}
+for b in ("baseline", "baseline720"):
+    if os.path.exists(os.path.join(out, b, "metrics.csv")):
+        rows_b = load(os.path.join(out, b)); base[len(rows_b)] = rows_b
 print(f"{'run':44} {'max|dmass|':>10} {'max|dhead|':>10} {'max dspread':>11} {'max|dspeed|':>11} {'final dmass':>11} {'recover':>8} {'end':>8}")
 for d in sorted(glob.glob(os.path.join(out, "*"))):
     name = os.path.basename(d)
