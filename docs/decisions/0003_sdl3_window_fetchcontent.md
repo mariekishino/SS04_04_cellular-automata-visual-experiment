@@ -38,3 +38,7 @@
 - 起動時の出力: `SDL 3.4.16  video driver: x11  renderer: opengl  window 512x512`、X11 の窓 ID あり。
 - `xwininfo -root -tree` に `cave_window` が現れ、タイトルバーに `cave  RUN  step 120  t=12.0  60 steps/s  mass 71.4  comp 2` が出た。
 - `--keys "90:space,120:n,121:n,122:n,150:space,240:r,300:s,330:plus,360:minus,410:q"` で、停止 → 1 ステップ ×3 → 再開 → リセット(ステップ数が 0 から再開) → スクリーンショット → 速度 2 倍 → 半分 → 終了、の順に動作した。
+
+## 実機での確認(2026-09-24、本人)
+
+Mac でリポジトリを clone し、`phase-1-autonomous-body` を `CAVE_WITH_SDL3=ON` でビルドして `cave_window` を起動。窓が開き、Orbium の動きを目視で確認した。使用した SDL3 の入手経路(brew か FetchContent か)と macOS の版は未記録。
