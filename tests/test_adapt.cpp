@@ -34,7 +34,7 @@ int main() {
     auto e = orbium({{"stim_mode", "growth"}, {"stim_gain", "0.0"}, {"adapt_k", "1"}, {"adapt_tau_steps", "50"}});
     for (int i = 0; i < 100; ++i) e->step(one);
     CHECK_NEAR(dynamic_cast<Lenia&>(*e).adaptation(), 1.0 - std::exp(-100.0 / 50.0), 1e-4);
-    CHECK(e->slow_states().size() == 1 && e->slow_states()[0].first == "adapt_m");
+    CHECK(e->slow_states().size() >= 1 && e->slow_states()[0].first == "adapt_m");
     // 4. history reduces the probe response: 300 steps of stimulus vs 300 steps of silence, then a 30-step probe
     auto h1 = orbium({{"stim_mode", "growth"}, {"stim_gain", "0.2"}, {"adapt_k", "3"}, {"adapt_tau_steps", "300"}});
     auto h0 = orbium({{"stim_mode", "growth"}, {"stim_gain", "0.2"}, {"adapt_k", "3"}, {"adapt_tau_steps", "300"}});

@@ -28,3 +28,4 @@
 - [0004 — 刺激なしの基準動作として Orbium の直進を受け入れる](0004_accept_gliding_baseline.md)
 - [0005 — 刺激の経路、音声ファイルの扱い、再生と刺激の時刻合わせ](0005_stimulus_path_and_audio.md)
 - [0006 — 履歴の最初の機構は「順応」](0006_adaptation_as_history.md)
+- [0007 — 可塑性は反応の強さを個体全体で 1 つ、ゆっくり戻る形で書き換える。作品向けの既定値](0007_plastic_gain_and_artwork_defaults.md)

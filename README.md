@@ -6,14 +6,14 @@
 ## 3行で言うと
 
 - **何を作るか:** まとまりを保ちながら流体のように動く視覚的存在。音はスイッチではなく環境入力。
-- **今どこか:** **Phase 3(履歴)**。Phase 2 で音の刺激が内部更新に作用し、一様なら一過性、勾配なら向きが変わることが分かった。
-- **次に何をするか:** 刺激の長期平均を遅い状態変数として持ち(順応)、同じ音でも履歴によって応答が違うか、その差がどれだけ残るかを測る。
+- **今どこか:** **Phase 4(可塑性)**。Phase 3 で、同じ音でも直前の履歴によって応答が変わる(慣れる)ことが分かった。慣れは静かにすれば数十秒で消える。
+- **次に何をするか:** 音への敏感さ(反応の強さ)そのものを経験でゆっくり書き換え、静かな時間の後にも差が残るか、何分残るかを測る。
 
 ## 現在のフェーズ
 
-**Phase 3 — 履歴** → [docs/phases/03_history.md](docs/phases/03_history.md)
+**Phase 4 — 可塑性** → [docs/phases/04_plasticity.md](docs/phases/04_plasticity.md)
 
-Phase 0〜2 は完了(報告: [Phase 0](docs/phases/00_report.md)、[Phase 1](docs/phases/01_report.md)、[Phase 2](docs/phases/02_report.md))。採用モデルは Lenia 型(Orbium、周期境界、64×64)、刺激の入り口は成長関数への加算。
+Phase 0〜3 は完了(報告: [Phase 0](docs/phases/00_report.md)、[Phase 1](docs/phases/01_report.md)、[Phase 2](docs/phases/02_report.md)、[Phase 3](docs/phases/03_report.md))。採用モデルは Lenia 型(Orbium、周期境界、64×64)、刺激の入り口は成長関数への加算、履歴は順応(時定数 10 秒)。
 
 フェーズを進めるときは、この節だけを書き換えます。コーディングエージェントはこの節を「今の作業範囲」として読みます([CLAUDE.md](CLAUDE.md) 参照)。
 
@@ -84,6 +84,23 @@ scripts/phase3_summary.py experiments/out          # 探針応答(総量増)と�
 
 `metrics.csv` に `adapt_m` 列が加わります。`--wav-until T` で曲を T 秒以降無音にでき、`--stim-shape cos_x` は周期境界で連続な形です。設計の理由は [decisions/0006](docs/decisions/0006_adaptation_as_history.md)。
 
+### 可塑性(Phase 4)
+
+```bash
+# 2 分の連続音の後、2 分の無音を置いて 240 s に探針。可塑性あり(1 秒あたり 0.01、戻り 180 秒)
+./build/cave --out experiments/out/on_E2 --steps 14700 --every 60 --stim pulse --pulse-start 1 --pulse-dur 118 --pulse-period 0 --pulse-count 1 \
+  --probe-at 240 --probe-dur 0.5 --stim-mode growth --stim-gain 0.3 --adapt-k 3 --adapt-tau 10 --plast-rate 0.01 --plast-return 180
+# 同じ条件で可塑性なし(順応だけ)
+./build/cave --out experiments/out/off_E2 --steps 14700 --every 60 --stim pulse --pulse-start 1 --pulse-dur 118 --pulse-period 0 --pulse-count 1 \
+  --probe-at 240 --probe-dur 0.5 --stim-mode growth --stim-gain 0.3 --adapt-k 3 --adapt-tau 10 --plast-rate 0
+scripts/phase3_summary.py experiments/out        # 探針時の m と g、応答を一覧
+
+# 窓アプリ。既定が cos 型・順応 10 秒なので、可塑性だけ指定すればよい。タイトルの g が今の反応の強さ
+./build-sdl/cave_window --wav 曲名 --stim-mode growth --stim-gain 0.3 --plast-rate 0.01 --plast-return 180
+```
+
+`metrics.csv` に `plast_g` 列が加わります。設計の理由は [decisions/0007](docs/decisions/0007_plastic_gain_and_artwork_defaults.md)。
+
 Linux でソースからビルドする場合は X11 の開発パッケージが要ります(一覧は [decisions/0003](docs/decisions/0003_sdl3_window_fetchcontent.md))。VM では仮想ディスプレイで、Mac では実機で動作を確認しています。Windows は未確認です。
 
 ## ドキュメントの地図
@@ -97,7 +114,7 @@ Linux でソースからビルドする場合は X11 の開発パッケージが
 | 本人 | [docs/04_development_workflow.md](docs/04_development_workflow.md) | 1 フェーズをどう回すか(人間側の手順) |
 | 実装者 | [docs/01_architecture.md](docs/01_architecture.md) | 技術方針、責務の境界、性能の考え方 |
 | 実装者 | [docs/02_experiment_protocol.md](docs/02_experiment_protocol.md) | 何を記録し、何を測るか |
-| 実装者 | [docs/phases/](docs/phases/) | 各フェーズの具体的な実装範囲と完了条件。報告: [Phase 0](docs/phases/00_report.md)、[Phase 1](docs/phases/01_report.md)、[Phase 2](docs/phases/02_report.md)、[Phase 3](docs/phases/03_report.md) |
+| 実装者 | [docs/phases/](docs/phases/) | 各フェーズの具体的な実装範囲と完了条件。報告: [Phase 0](docs/phases/00_report.md)、[Phase 1](docs/phases/01_report.md)、[Phase 2](docs/phases/02_report.md)、[Phase 3](docs/phases/03_report.md)、[Phase 4](docs/phases/04_report.md) |
 | 実装者 | [docs/decisions/](docs/decisions/) | 後から変えるときに理由が要る決定 |
 | 本人 | [docs/learning/](docs/learning/) | C++ とモデルの学習メモ |
 | 本人 | [docs/future/](docs/future/) | 今は範囲外の将来構想 |

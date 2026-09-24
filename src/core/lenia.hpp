@@ -18,6 +18,9 @@
 // Adaptation (Phase 3): a scalar slow state m tracks the stimulus with time
 // constant tau; the effective gain is gain / (1 + k m). With k = 0 the Phase 2
 // arithmetic is untouched.
+// Plasticity (Phase 4): the gain itself becomes a slow state g that loud
+// experience lowers and quiet time slowly restores. With rate = 0 the Phase 3
+// arithmetic is untouched.
 //
 // Cost per step: W * H * (2R+1)^2 multiply-adds.
 
@@ -47,6 +50,11 @@ struct LeniaParams {
     // Phase 3 adaptation: m += alpha (s - m), alpha = 1 - exp(-1/tau); g_eff = gain / (1 + k m).
     float adapt_k = 0.0f;            // 0 = off (Phase 2 arithmetic untouched)
     float adapt_tau_steps = 600.0f;  // time constant in steps (600 = 10 s at 60 steps/s)
+    // Phase 4 plasticity: the gain itself is a slow state g (initially stim_gain = g0).
+    //   g -= rate * m * g              (loud experience lowers the sensitivity)
+    //   g += (g0 - g) / return_steps   (quiet time slowly restores it, never above g0)
+    float plast_rate = 0.0f;              // per step; 0 = off (Phase 3 arithmetic untouched)
+    float plast_return_steps = 10800.0f;  // 180 s at 60 steps/s
 };
 
 class Lenia : public Model {
@@ -70,6 +78,7 @@ public:
     int kernel_size() const { return 2 * p_.R + 1; }
     const LeniaParams& params() const { return p_; }
     float adaptation() const { return m_; }   // slow state m in [0,1]
+    float plastic_gain() const { return g_; }  // slow state g (Phase 4); equals stim_gain when plasticity is off
     std::vector<std::pair<std::string, double>> slow_states() const override;
 
     static float kernel_core(float r);
@@ -81,6 +90,7 @@ private:
 
     LeniaParams p_;
     float m_ = 0.0f;   // slow state: EMA of the stimulus amplitude (Phase 3)
+    float g_ = 0.0f;   // slow state: plastic gain (Phase 4), initialised to stim_gain
     Grid a_;        // current state A
     Grid next_;     // written during step(), then swapped
     std::vector<float> k_;   // (2R+1)^2 kernel weights, row-major

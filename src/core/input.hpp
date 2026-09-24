@@ -4,6 +4,8 @@
 //
 //   PulseSource    synthetic: `count` pulses of `amplitude`, each `duration`
 //                  seconds long, starting at `start`, repeating every `period`.
+//                  A single pulse (count 1) ignores the period. A duration longer
+//                  than the period is NOT cut (pulses overlap into a continuous one).
 //   EnvelopeSource an amplitude series sampled at a fixed rate, e.g. the RMS
 //                  envelope of a WAV file (see rms_envelope / smooth_ema).
 #include <memory>

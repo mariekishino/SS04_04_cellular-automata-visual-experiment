@@ -10,7 +10,7 @@
 namespace cave {
 
 Lenia::Lenia(int width, int height, const LeniaParams& p)
-    : p_(p), a_(width, height, 0.0f), next_(width, height, 0.0f) {
+    : p_(p), g_(p.stim_gain), a_(width, height, 0.0f), next_(width, height, 0.0f) {
     build_kernel();
     build_index_tables();
 }
@@ -81,9 +81,20 @@ void Lenia::step(const Stimulus& stim) {
     // so the branch below leaves the Phase 1 arithmetic untouched.
     // Phase 3: the slow state seen by this step is the one accumulated from PAST stimuli
     // (read before update), so the response depends on history, not on the current sample.
-    float gain_eff = p_.stim_gain;
+    // Phase 4: the base gain is the plastic state g_ (== stim_gain while plasticity is off).
+    const float base_gain = (p_.plast_rate > 0.0f) ? g_ : p_.stim_gain;
+    float gain_eff = base_gain;
     if (p_.adapt_k > 0.0f) {
-        gain_eff = p_.stim_gain / (1.0f + p_.adapt_k * m_);
+        gain_eff = base_gain / (1.0f + p_.adapt_k * m_);
+    }
+    if (p_.plast_rate > 0.0f) {
+        // read m before it is updated below: plasticity, like adaptation, is driven by the past
+        g_ -= p_.plast_rate * m_ * g_;
+        g_ += (p_.stim_gain - g_) / p_.plast_return_steps;
+        if (g_ > p_.stim_gain) g_ = p_.stim_gain;   // never above the baseline
+        if (g_ < 0.0f) g_ = 0.0f;
+    }
+    if (p_.adapt_k > 0.0f) {
         const float alpha = 1.0f - std::exp(-1.0f / p_.adapt_tau_steps);
         m_ += alpha * (stim.amplitude - m_);
     }
@@ -137,6 +148,9 @@ std::vector<std::pair<std::string, std::string>> Lenia::parameters() const {
         {"adapt_k", f(p_.adapt_k)},
         {"adapt_tau_steps", f(p_.adapt_tau_steps)},
         {"adapt_rule", "m += (1-exp(-1/tau))(s-m); g_eff = gain/(1+k m)"},
+        {"plast_rate", f(p_.plast_rate)},
+        {"plast_return_steps", f(p_.plast_return_steps)},
+        {"plast_rule", "g -= rate m g; g += (g0-g)/return; g <= g0"},
     };
 }
 
@@ -145,18 +159,20 @@ std::string Lenia::formula() const {
 }
 
 std::vector<std::pair<std::string, double>> Lenia::slow_states() const {
-    return {{"adapt_m", static_cast<double>(m_)}};
+    return {{"adapt_m", static_cast<double>(m_)}, {"plast_g", static_cast<double>(g_)}};
 }
 
 void Lenia::save_state(std::ostream& os) const {
     os.write(reinterpret_cast<const char*>(&steps_), sizeof(steps_));
     os.write(reinterpret_cast<const char*>(&m_), sizeof(m_));
+    os.write(reinterpret_cast<const char*>(&g_), sizeof(g_));
     write_grid(os, a_);
 }
 
 void Lenia::load_state(std::istream& is) {
     is.read(reinterpret_cast<char*>(&steps_), sizeof(steps_));
     is.read(reinterpret_cast<char*>(&m_), sizeof(m_));
+    is.read(reinterpret_cast<char*>(&g_), sizeof(g_));
     read_grid(is, a_);
     next_ = Grid(a_.width(), a_.height(), 0.0f);
     build_index_tables();

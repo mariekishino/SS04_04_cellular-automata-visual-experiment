@@ -9,10 +9,18 @@ namespace cave {
 float PulseSource::amplitude(double t) const {
     if (t < p_.start || p_.duration <= 0.0) return 0.0f;
     const double rel = t - p_.start;
-    if (p_.period <= 0.0) return rel < p_.duration ? p_.amplitude : 0.0f;
-    const double k = std::floor(rel / p_.period);
-    if (p_.count >= 0 && k >= p_.count) return 0.0f;
-    return (rel - k * p_.period) < p_.duration ? p_.amplitude : 0.0f;
+    // A single pulse (count 1) or no period: one window of `duration`.
+    if (p_.count == 1 || p_.period <= 0.0) return rel < p_.duration ? p_.amplitude : 0.0f;
+    // Repeating pulses. A pulse longer than the period overlaps the next one, so check every
+    // pulse that could still be active at `rel`, not only the most recent one.
+    const long k_hi = static_cast<long>(std::floor(rel / p_.period));
+    const long span = static_cast<long>(std::ceil(p_.duration / p_.period));
+    for (long k = k_hi; k >= 0 && k >= k_hi - span; --k) {
+        if (p_.count >= 0 && k >= p_.count) continue;
+        const double off = rel - static_cast<double>(k) * p_.period;
+        if (off >= 0.0 && off < p_.duration) return p_.amplitude;
+    }
+    return 0.0f;
 }
 
 double PulseSource::duration_seconds() const {
