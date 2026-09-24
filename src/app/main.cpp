@@ -1,0 +1,247 @@
+// cave: Phase 0 command-line runner.
+//
+// Runs one model from a preset + initial condition for N steps, writing
+//   DIR/config.json   everything needed to reproduce (docs/02)
+//   DIR/metrics.csv   one row per snapshot
+//   DIR/frames/*.png  one image per snapshot
+//   DIR/state.bin     checkpoint at the end (for --resume)
+//   DIR/summary.txt   health flags and timing
+//
+// Stop / resume / reset in headless form:
+//   stop   = the run ends at --steps and writes state.bin
+//   resume = --resume continues from DIR/state.bin with the same flags
+//   reset  = run again without --resume (same seed => same result)
+
+#include <chrono>
+#include <cstdio>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <memory>
+#include <sstream>
+#include <string>
+#include <vector>
+
+#include <sys/stat.h>
+
+#include "core/metrics.hpp"
+#include "core/model.hpp"
+#include "core/presets.hpp"
+#include "io/colormap.hpp"
+#include "io/png.hpp"
+
+#ifndef CAVE_GIT_HASH
+#define CAVE_GIT_HASH "unknown"
+#endif
+
+using namespace cave;
+
+namespace {
+
+struct Args {
+    std::string model = "lenia";
+    std::string preset = "orbium";
+    std::string init = "orbium";
+    unsigned seed = 1;
+    int width = 64, height = 64;
+    long steps = 200;
+    long every = 10;
+    std::string out = "experiments/out/run";
+    Boundary boundary = Boundary::Periodic;
+    Overrides overrides;
+    float threshold = 0.1f;
+    int scale = 4;
+    Colormap colormap = Colormap::Viridis;
+    float vmax = -1.0f;  // <0 means model default
+    bool resume = false;
+    bool list = false;
+    bool quiet = false;
+};
+
+void usage() {
+    std::printf(
+        "usage: cave [options]\n"
+        "  --model lenia|grayscott   --preset NAME   --init NAME   --seed N\n"
+        "  --width W --height H      --steps N       --every K (snapshot interval)\n"
+        "  --out DIR                 --boundary periodic|fixed\n"
+        "  --set key=value           (repeatable; lenia: R mu sigma dt / grayscott: Du Dv F k dt)\n"
+        "  --threshold T             (count_above threshold, default 0.1)\n"
+        "  --scale S --colormap gray|viridis --vmax V\n"
+        "  --resume                  (continue from DIR/state.bin)\n"
+        "  --list                    (show presets and inits)\n"
+        "  --quiet\n");
+}
+
+bool parse(int argc, char** argv, Args& a) {
+    for (int i = 1; i < argc; ++i) {
+        std::string k = argv[i];
+        auto need = [&](std::string& v) { if (i + 1 >= argc) return false; v = argv[++i]; return true; };
+        std::string v;
+        if (k == "--model") { if (!need(a.model)) return false; }
+        else if (k == "--preset") { if (!need(a.preset)) return false; }
+        else if (k == "--init") { if (!need(a.init)) return false; }
+        else if (k == "--seed") { if (!need(v)) return false; a.seed = static_cast<unsigned>(std::stoul(v)); }
+        else if (k == "--width") { if (!need(v)) return false; a.width = std::stoi(v); }
+        else if (k == "--height") { if (!need(v)) return false; a.height = std::stoi(v); }
+        else if (k == "--steps") { if (!need(v)) return false; a.steps = std::stol(v); }
+        else if (k == "--every") { if (!need(v)) return false; a.every = std::stol(v); }
+        else if (k == "--out") { if (!need(a.out)) return false; }
+        else if (k == "--boundary") { if (!need(v)) return false; a.boundary = (v == "fixed") ? Boundary::Fixed : Boundary::Periodic; }
+        else if (k == "--set") { if (!need(v)) return false; auto p = v.find('='); if (p == std::string::npos) return false; a.overrides[v.substr(0, p)] = v.substr(p + 1); }
+        else if (k == "--threshold") { if (!need(v)) return false; a.threshold = std::stof(v); }
+        else if (k == "--scale") { if (!need(v)) return false; a.scale = std::stoi(v); }
+        else if (k == "--colormap") { if (!need(v)) return false; a.colormap = colormap_from_name(v); }
+        else if (k == "--vmax") { if (!need(v)) return false; a.vmax = std::stof(v); }
+        else if (k == "--resume") a.resume = true;
+        else if (k == "--list") a.list = true;
+        else if (k == "--quiet") a.quiet = true;
+        else if (k == "--help" || k == "-h") return false;
+        else { std::fprintf(stderr, "unknown option: %s\n", k.c_str()); return false; }
+    }
+    return true;
+}
+
+void mkdir_p(const std::string& path) {
+    std::string cur;
+    for (std::size_t i = 0; i < path.size(); ++i) {
+        cur += path[i];
+        if (path[i] == '/' || i + 1 == path.size()) ::mkdir(cur.c_str(), 0755);
+    }
+}
+
+std::string json_escape(const std::string& s) {
+    std::string o;
+    for (char c : s) { if (c == '"' || c == '\\') o += '\\'; o += c; }
+    return o;
+}
+
+void write_config(const Args& a, const Model& m, const std::string& path) {
+    std::ofstream f(path);
+    f << "{\n";
+    f << "  \"model\": \"" << m.name() << "\",\n";
+    f << "  \"code_version\": \"" << CAVE_GIT_HASH << "\",\n";
+    f << "  \"grid_size\": [" << a.width << ", " << a.height << "],\n";
+    f << "  \"initial_state_or_seed\": {\"init\": \"" << a.init << "\", \"seed\": " << a.seed << "},\n";
+    f << "  \"boundary\": \"" << boundary_name(m.boundary()) << "\",\n";
+    f << "  \"timestep\": " << m.dt() << ",\n";
+    f << "  \"preset\": \"" << a.preset << "\",\n";
+    f << "  \"model_parameters\": {";
+    bool first = true;
+    for (const auto& kv : m.parameters()) {
+        f << (first ? "" : ", ") << "\"" << kv.first << "\": \"" << json_escape(kv.second) << "\"";
+        first = false;
+    }
+    f << "},\n";
+    f << "  \"formula\": \"" << json_escape(m.formula()) << "\",\n";
+    f << "  \"input_sequence\": \"none (Phase 0: no stimulus)\",\n";
+    f << "  \"duration_steps\": " << a.steps << ",\n";
+    f << "  \"snapshot_every\": " << a.every << ",\n";
+    f << "  \"metrics_threshold\": " << a.threshold << ",\n";
+    f << "  \"render\": {\"scale\": " << a.scale << ", \"colormap\": \"" << colormap_name(a.colormap) << "\", \"vmin\": 0, \"vmax\": " << a.vmax << "},\n";
+    f << "  \"resumed\": " << (a.resume ? "true" : "false") << "\n";
+    f << "}\n";
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+    Args a;
+    if (!parse(argc, argv, a)) { usage(); return 2; }
+    if (a.list) {
+        std::printf("presets:\n");
+        for (const auto& p : list_presets()) std::printf("  %-10s %-10s %s\n", p.model.c_str(), p.name.c_str(), p.description.c_str());
+        std::printf("inits:\n");
+        for (const auto& p : list_inits()) std::printf("  %-10s %-10s %s\n", p.model.c_str(), p.name.c_str(), p.description.c_str());
+        return 0;
+    }
+
+    std::unique_ptr<Model> model;
+    try {
+        model = make_model(a.model, a.preset, a.width, a.height, a.boundary, a.overrides);
+        if (a.resume) {
+            std::ifstream in(a.out + "/state.bin", std::ios::binary);
+            if (!in) { std::fprintf(stderr, "cannot open %s/state.bin\n", a.out.c_str()); return 1; }
+            model->load_state(in);
+            const Grid* g = model->channels()[0].grid;
+            if (g->width() != a.width || g->height() != a.height) {
+                std::fprintf(stderr, "checkpoint grid %dx%d does not match --width/--height\n", g->width(), g->height());
+                return 1;
+            }
+        } else {
+            apply_init(*model, a.init, a.seed);
+        }
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "error: %s\n", e.what());
+        return 1;
+    }
+    if (a.vmax < 0.0f) a.vmax = (a.model == "grayscott") ? 0.5f : 1.0f;
+
+    mkdir_p(a.out + "/frames");
+    write_config(a, *model, a.out + "/config.json");
+
+    const std::vector<Channel> chans = model->channels();
+    std::vector<std::string> names;
+    for (const Channel& c : chans) names.push_back(c.name);
+
+    std::ofstream csv(a.out + "/metrics.csv", a.resume ? std::ios::app : std::ios::out);
+    if (!a.resume) csv << csv_header(names) << "\n";
+
+    std::vector<Grid> prev(chans.size());
+    std::vector<std::vector<ChannelMetrics>> series(chans.size());
+    const std::size_t cells = chans[0].grid->size();
+    bool have_prev = false;
+
+    auto snapshot = [&]() {
+        std::vector<ChannelMetrics> ms;
+        for (std::size_t i = 0; i < chans.size(); ++i) {
+            ms.push_back(compute_metrics(*chans[i].grid, have_prev ? &prev[i] : nullptr, a.threshold));
+            series[i].push_back(ms.back());
+            prev[i] = *chans[i].grid;  // copy: O(cells), only at snapshots
+        }
+        have_prev = true;
+        csv << csv_row(model->step_count(), model->time(), ms) << "\n";
+        char name[64];
+        std::snprintf(name, sizeof(name), "/frames/frame_%07llu.png", static_cast<unsigned long long>(model->step_count()));
+        write_png_rgb(a.out + name, chans[0].grid->width() * a.scale, chans[0].grid->height() * a.scale,
+                      render_rgb(*chans[0].grid, a.scale, a.colormap, 0.0f, a.vmax));
+        if (!a.quiet) {
+            std::printf("step %8llu  %s: min %.4f max %.4f sum %.3f diff %.4f above %zu%s\n",
+                        static_cast<unsigned long long>(model->step_count()), names[0].c_str(), ms[0].min, ms[0].max,
+                        ms[0].sum, ms[0].diff_l1, ms[0].count_above, ms[0].finite ? "" : "  NON-FINITE");
+        }
+    };
+
+    const auto t0 = std::chrono::steady_clock::now();
+    const unsigned long long start = model->step_count();
+    const unsigned long long target = start + static_cast<unsigned long long>(a.steps);
+    snapshot();
+    while (model->step_count() < target) {
+        model->step();
+        if (model->step_count() % static_cast<unsigned long long>(a.every) == 0 || model->step_count() == target) snapshot();
+    }
+    const double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+
+    {
+        std::ofstream st(a.out + "/state.bin", std::ios::binary);
+        model->save_state(st);
+    }
+
+    HealthConfig hc;
+    std::ofstream sum(a.out + "/summary.txt");
+    sum << "code_version " << CAVE_GIT_HASH << "\n";
+    sum << "steps " << start << " -> " << model->step_count() << "  (" << a.steps << " this run)\n";
+    sum << "wall_seconds " << secs << "  ms_per_step " << (a.steps > 0 ? 1000.0 * secs / static_cast<double>(a.steps) : 0.0) << "\n";
+    sum << "grid " << a.width << "x" << a.height << "  cells " << cells << "\n";
+    for (std::size_t i = 0; i < chans.size(); ++i) {
+        const HealthFlags h = evaluate_health(series[i], cells, hc);
+        sum << "channel " << names[i] << ": nan_or_inf=" << h.nan_or_inf << " extinct=" << h.extinct
+            << " saturated=" << h.saturated << " static=" << h.static_ << "  (threshold " << a.threshold
+            << ", saturation_fraction " << hc.saturation_fraction << ", static_eps " << hc.static_eps
+            << " over " << hc.static_window << " snapshots)\n";
+    }
+    if (!a.quiet) {
+        std::printf("done: %llu steps in %.2fs (%.3f ms/step) -> %s\n", static_cast<unsigned long long>(a.steps), secs,
+                    a.steps > 0 ? 1000.0 * secs / static_cast<double>(a.steps) : 0.0, a.out.c_str());
+    }
+    return 0;
+}
