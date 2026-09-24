@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="380" viewBox="0 0 900 380" font-family="system-ui, sans-serif">
+<rect width="900" height="380" fill="#fcfcfb"/>
+<text x="64" y="24" font-size="15" font-weight="600" fill="#0b0b0b">探針への応答 vs 共通の無音区間の長さ(履歴: 18 秒の連続刺激)</text>
+<text x="64" y="42" font-size="12" fill="#52514e">順応 k=3。無音が長いほど応答が基準(順応なし 23.0)に戻る。戻る速さは時定数で決まる</text>
+<line x1="64" x2="730" y1="336.0" y2="336.0" stroke="#e5e5e2"/>
+<text x="56" y="340.0" font-size="11" text-anchor="end" fill="#52514e">0</text>
+<line x1="64" x2="730" y1="280.0" y2="280.0" stroke="#e5e5e2"/>
+<text x="56" y="284.0" font-size="11" text-anchor="end" fill="#52514e">5</text>
+<line x1="64" x2="730" y1="224.0" y2="224.0" stroke="#e5e5e2"/>
+<text x="56" y="228.0" font-size="11" text-anchor="end" fill="#52514e">10</text>
+<line x1="64" x2="730" y1="168.0" y2="168.0" stroke="#e5e5e2"/>
+<text x="56" y="172.0" font-size="11" text-anchor="end" fill="#52514e">15</text>
+<line x1="64" x2="730" y1="112.0" y2="112.0" stroke="#e5e5e2"/>
+<text x="56" y="116.0" font-size="11" text-anchor="end" fill="#52514e">20</text>
+<line x1="64" x2="730" y1="56.0" y2="56.0" stroke="#e5e5e2"/>
+<text x="56" y="60.0" font-size="11" text-anchor="end" fill="#52514e">25</text>
+<text x="85.5" y="354" font-size="11" text-anchor="middle" fill="#52514e">2</text>
+<text x="117.7" y="354" font-size="11" text-anchor="middle" fill="#52514e">5</text>
+<text x="278.8" y="354" font-size="11" text-anchor="middle" fill="#52514e">20</text>
+<text x="708.5" y="354" font-size="11" text-anchor="middle" fill="#52514e">60</text>
+<line x1="64" x2="730" y1="336" y2="336" stroke="#52514e"/>
+<text x="397" y="372" font-size="11" text-anchor="middle" fill="#52514e">共通の無音区間 (s)</text>
+<text transform="translate(16 196) rotate(-90)" font-size="11" text-anchor="middle" fill="#52514e">探針中の総量増</text>
+<line x1="64" x2="730" y1="78.2" y2="78.2" stroke="#52514e" stroke-dasharray="4 4"/>
+<text x="68" y="73.2" font-size="11" fill="#52514e">順応なし (k=0): 23.0</text>
+<polyline points="85.5,248.0 117.7,226.7 278.8,211.9 708.5,212.5" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round"/>
+<circle cx="85.5" cy="248.0" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="117.7" cy="226.7" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="278.8" cy="211.9" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="708.5" cy="212.5" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<polyline points="85.5,267.8 117.7,256.4 278.8,191.1 708.5,127.8" fill="none" stroke="#eb6834" stroke-width="2" stroke-linejoin="round"/>
+<circle cx="85.5" cy="267.8" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="117.7" cy="256.4" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="278.8" cy="191.1" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="708.5" cy="127.8" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<polyline points="85.5,227.7 117.7,225.8 278.8,204.9 708.5,160.6" fill="none" stroke="#1baf7a" stroke-width="2" stroke-linejoin="round"/>
+<circle cx="85.5" cy="227.7" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="117.7" cy="225.8" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="278.8" cy="204.9" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="708.5" cy="160.6" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="736" cy="127.8" r="4" fill="#eb6834"/>
+<text x="744" y="131.8" font-size="11" fill="#0b0b0b">tau 10 s</text>
+<circle cx="736" cy="160.6" r="4" fill="#1baf7a"/>
+<text x="744" y="164.6" font-size="11" fill="#0b0b0b">tau 60 s</text>
+<circle cx="736" cy="212.5" r="4" fill="#2a78d6"/>
+<text x="744" y="216.5" font-size="11" fill="#0b0b0b">tau 2 s</text>
+</svg>

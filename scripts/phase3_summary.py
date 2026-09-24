@@ -8,9 +8,11 @@ out = sys.argv[1] if len(sys.argv) > 1 else "experiments/out/phase3"
 
 def probe_response(d):
     cfg = json.load(open(os.path.join(d, "config.json")))
-    m = re.search(r"pulse start=([\d.]+) duration=([\d.]+) period=0 count=1", cfg["input_sequence"])
-    if not m: return None
-    t0 = float(m.group(1)); sps = cfg["stimulus"]["steps_per_second"]
+    # the probe is the LAST pulse in the composite (added last); a continuous history pulse
+    # has the same "period=0 count=1" form, so take the final match, not the first
+    ms = re.findall(r"pulse start=([\d.]+) duration=([\d.]+) period=0 count=1", cfg["input_sequence"])
+    if not ms: return None
+    t0 = float(ms[-1][0]); sps = cfg["stimulus"]["steps_per_second"]
     s0 = int(t0 * sps); s1 = int((t0 + 1.0) * sps)
     rows = list(csv.DictReader(open(os.path.join(d, "metrics.csv"))))
     before = [r for r in rows if int(r["step"]) <= s0]
