@@ -59,7 +59,7 @@ target_compile_options(cave PRIVATE -Wall -Wextra -Wpedantic)
 
 # --- tests ---
 enable_testing()
-foreach(t test_grid test_lenia test_gray_scott test_metrics test_png test_determinism)
+foreach(t test_grid test_lenia test_gray_scott test_metrics test_shape test_png test_determinism)
   add_executable(${t} tests/${t}.cpp)
   target_link_libraries(${t} PRIVATE cave_core cave_io)
   add_test(NAME ${t} COMMAND ${t})

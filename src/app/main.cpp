@@ -12,7 +12,9 @@
 //   resume = --resume continues from DIR/state.bin with the same flags
 //   reset  = run again without --resume (same seed => same result)
 
+#include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -184,12 +186,17 @@ int main(int argc, char** argv) {
     for (const Channel& c : chans) names.push_back(c.name);
 
     std::ofstream csv(a.out + "/metrics.csv", a.resume ? std::ios::app : std::ios::out);
-    if (!a.resume) csv << csv_header(names) << "\n";
+    if (!a.resume) csv << csv_header(names) << "," << names[0] << "_cx," << names[0] << "_cy," << names[0] << "_spread," << names[0] << "_components," << names[0] << "_speed\n";
 
     std::vector<Grid> prev(chans.size());
     std::vector<std::vector<ChannelMetrics>> series(chans.size());
     const std::size_t cells = chans[0].grid->size();
     bool have_prev = false;
+    ShapeMetrics prev_shape;
+    unsigned long long prev_shape_step = 0;
+    std::vector<double> speeds;
+    std::size_t comp_min = 0, comp_max = 0;
+    double spread_min = 0.0, spread_max = 0.0;
 
     auto snapshot = [&]() {
         std::vector<ChannelMetrics> ms;
@@ -198,16 +205,32 @@ int main(int argc, char** argv) {
             series[i].push_back(ms.back());
             prev[i] = *chans[i].grid;  // copy: O(cells), only at snapshots
         }
+        const ShapeMetrics sh = compute_shape(*chans[0].grid, model->boundary(), a.threshold);
+        double speed = 0.0;
+        if (have_prev && model->step_count() > prev_shape_step && sh.mass > 0.0 && prev_shape.mass > 0.0) {
+            double dx, dy;
+            displacement(prev_shape.cx, prev_shape.cy, sh.cx, sh.cy, chans[0].grid->width(), chans[0].grid->height(), model->boundary(), dx, dy);
+            const double elapsed = static_cast<double>(model->step_count() - prev_shape_step) * model->dt();
+            speed = std::sqrt(dx * dx + dy * dy) / elapsed;  // cells per unit time
+            speeds.push_back(speed);
+        }
+        if (!have_prev) { comp_min = comp_max = sh.components; spread_min = spread_max = sh.spread; }
+        else {
+            comp_min = std::min(comp_min, sh.components); comp_max = std::max(comp_max, sh.components);
+            spread_min = std::min(spread_min, sh.spread); spread_max = std::max(spread_max, sh.spread);
+        }
+        prev_shape = sh;
+        prev_shape_step = model->step_count();
         have_prev = true;
-        csv << csv_row(model->step_count(), model->time(), ms) << "\n";
+        csv << csv_row(model->step_count(), model->time(), ms) << ',' << sh.cx << ',' << sh.cy << ',' << sh.spread << ',' << sh.components << ',' << speed << "\n";
         char name[64];
         std::snprintf(name, sizeof(name), "/frames/frame_%07llu.png", static_cast<unsigned long long>(model->step_count()));
         write_png_rgb(a.out + name, chans[0].grid->width() * a.scale, chans[0].grid->height() * a.scale,
                       render_rgb(*chans[0].grid, a.scale, a.colormap, 0.0f, a.vmax));
         if (!a.quiet) {
-            std::printf("step %8llu  %s: min %.4f max %.4f sum %.3f diff %.4f above %zu%s\n",
-                        static_cast<unsigned long long>(model->step_count()), names[0].c_str(), ms[0].min, ms[0].max,
-                        ms[0].sum, ms[0].diff_l1, ms[0].count_above, ms[0].finite ? "" : "  NON-FINITE");
+            std::printf("step %8llu  %s: sum %.3f above %zu  c=(%.1f,%.1f) spread %.2f comp %zu speed %.3f%s\n",
+                        static_cast<unsigned long long>(model->step_count()), names[0].c_str(), ms[0].sum,
+                        ms[0].count_above, sh.cx, sh.cy, sh.spread, sh.components, speed, ms[0].finite ? "" : "  NON-FINITE");
         }
     };
 
@@ -238,6 +261,14 @@ int main(int argc, char** argv) {
             << " saturated=" << h.saturated << " static=" << h.static_ << "  (threshold " << a.threshold
             << ", saturation_fraction " << hc.saturation_fraction << ", static_eps " << hc.static_eps
             << " over " << hc.static_window << " snapshots)\n";
+    }
+    {
+        double mean_speed = 0.0;
+        for (double v : speeds) mean_speed += v;
+        if (!speeds.empty()) mean_speed /= static_cast<double>(speeds.size());
+        sum << "shape " << names[0] << ": mean_speed " << mean_speed << " (cells per unit time, over " << speeds.size()
+            << " intervals)  components " << comp_min << ".." << comp_max << "  spread " << spread_min << ".." << spread_max
+            << "  final mass " << prev_shape.mass << " centroid (" << prev_shape.cx << ", " << prev_shape.cy << ")\n";
     }
     if (!a.quiet) {
         std::printf("done: %llu steps in %.2fs (%.3f ms/step) -> %s\n", static_cast<unsigned long long>(a.steps), secs,
