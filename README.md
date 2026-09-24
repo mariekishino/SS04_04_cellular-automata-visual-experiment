@@ -34,6 +34,18 @@ scripts/make_media.sh experiments/out/L1    # video.mp4 と sheet.png を作る
 
 出力先には `config.json`(再現に必要な設定)、`metrics.csv`、`frames/*.png`、`state.bin`(再開用)、`summary.txt`(健全性フラグと計測時間)が書かれます。Phase 0 では窓を開かず画像に書き出します([decisions/0002](docs/decisions/0002_headless_rendering_phase0.md))。
 
+### 窓アプリ(Phase 1、SDL3)
+
+```bash
+cmake -S . -B build-sdl -DCMAKE_BUILD_TYPE=Release -DCAVE_WITH_SDL3=ON   # SDL3 がなければ自動取得(初回は数分)
+cmake --build build-sdl -j --target cave_window
+./build-sdl/cave_window --width 64 --height 64 --scale 8 --sps 60
+```
+
+キー: Space 停止/再開、N 1 ステップ(停止中)、R 同じ seed でリセット、S スクリーンショット、+/- 速度を 2 倍/半分、Q 終了。タイトルバーにステップ数・速度・総量・連結成分数が出ます。
+
+Linux でソースからビルドする場合は X11 の開発パッケージが要ります(一覧は [decisions/0003](docs/decisions/0003_sdl3_window_fetchcontent.md))。VM では仮想ディスプレイで検証済み、Windows / Mac の実機は未確認です。
+
 ## ドキュメントの地図
 
 各ファイルの冒頭に「読者」と「役割」を書いてあります。迷ったらこの表から入ってください。
