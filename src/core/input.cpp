@@ -43,6 +43,34 @@ float EnvelopeSource::raw_amplitude(double t) const {
 
 double EnvelopeSource::duration_seconds() const { return static_cast<double>(smooth_.size()) / rate_; }
 
+void EnvelopeSource::truncate(double seconds) {
+    const std::size_t n = static_cast<std::size_t>(std::max(0.0, seconds) * rate_);
+    if (n < raw_.size()) raw_.resize(n);
+    if (n < smooth_.size()) smooth_.resize(n);
+    desc_ += " [truncated at " + std::to_string(seconds) + " s]";
+}
+
+float CompositeSource::amplitude(double t) const {
+    float a = 0.0f;
+    for (const auto& p : parts_) a = std::max(a, p->amplitude(t));
+    return a;
+}
+float CompositeSource::raw_amplitude(double t) const {
+    float a = 0.0f;
+    for (const auto& p : parts_) a = std::max(a, p->raw_amplitude(t));
+    return a;
+}
+double CompositeSource::duration_seconds() const {
+    double d = 0.0;
+    for (const auto& p : parts_) { if (p->duration_seconds() == 0.0) return 0.0; d = std::max(d, p->duration_seconds()); }
+    return d;
+}
+std::string CompositeSource::describe() const {
+    std::string s = "max of {";
+    for (std::size_t i = 0; i < parts_.size(); ++i) s += (i ? "; " : "") + parts_[i]->describe();
+    return s + "}";
+}
+
 std::vector<float> rms_envelope(const std::vector<float>& mono, int sample_rate, double frames_per_second) {
     const double win_d = sample_rate / frames_per_second;
     const std::size_t win = std::max<std::size_t>(1, static_cast<std::size_t>(win_d + 0.5));

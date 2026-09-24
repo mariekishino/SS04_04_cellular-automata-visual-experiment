@@ -47,10 +47,24 @@ public:
     double duration_seconds() const override;
     std::string describe() const override { return desc_; }
     const std::vector<float>& smoothed() const { return smooth_; }
+    void truncate(double seconds);   // silence from `seconds` on
 private:
     std::vector<float> raw_, smooth_;
     double rate_;
     std::string desc_;
+};
+
+// Max of several sources: a history pattern plus a probe pulse, for example.
+class CompositeSource : public InputSource {
+public:
+    void add(std::unique_ptr<InputSource> s) { parts_.push_back(std::move(s)); }
+    std::size_t size() const { return parts_.size(); }
+    float amplitude(double t) const override;
+    float raw_amplitude(double t) const override;
+    double duration_seconds() const override;
+    std::string describe() const override;
+private:
+    std::vector<std::unique_ptr<InputSource>> parts_;
 };
 
 // RMS over consecutive windows of sample_rate / frames_per_second samples.

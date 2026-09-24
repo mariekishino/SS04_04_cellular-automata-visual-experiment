@@ -70,6 +70,10 @@ struct Args {
     double sps = 60.0;                  // simulation steps per real second (time base for the input)
     std::string audio_dir = "experiments/audio";
     bool list_audio = false;
+    // --- Phase 3: probe, truncation, adaptation ---
+    double probe_at = -1.0, probe_dur = 0.5; float probe_amp = 1.0f;   // probe pulse layered on top (max)
+    double wav_until = -1.0;                                             // silence the WAV from this second on
+    double adapt_k = -1.0, adapt_tau = -1.0;                             // -> overrides adapt_k, adapt_tau_steps
 };
 
 void usage() {
@@ -89,7 +93,11 @@ void usage() {
         "  --stim-mode none|growth|mu --stim-gain G       (shortcuts for --set stim_mode= / stim_gain=)\n"
         "  --pulse-start S --pulse-dur S --pulse-period S --pulse-count N|-1 --pulse-amp A\n"
         "  --wav FILE|NAME --audio-dir DIR (default experiments/audio; mp3/m4a/... are converted with ffmpeg)\n"
-        "  --list-audio              --smooth TAU_SECONDS --sps STEPS_PER_SECOND (time base, default 60)\n");
+        "  --list-audio              --smooth TAU_SECONDS --sps STEPS_PER_SECOND (time base, default 60)\n"
+        "history (Phase 3):\n"
+        "  --probe-at T --probe-dur D --probe-amp A   (a probe pulse layered on the history input; max)\n"
+        "  --wav-until T              (silence the WAV from T seconds on)\n"
+        "  --adapt-k K --adapt-tau SECONDS            (adaptation: g_eff = g / (1 + K m), m = EMA of s with tau)\n");
 }
 
 bool parse(int argc, char** argv, Args& a) {
@@ -126,6 +134,12 @@ bool parse(int argc, char** argv, Args& a) {
         else if (k == "--sps") { if (!need(v)) return false; a.sps = std::stod(v); }
         else if (k == "--audio-dir") { if (!need(a.audio_dir)) return false; }
         else if (k == "--list-audio") a.list_audio = true;
+        else if (k == "--probe-at") { if (!need(v)) return false; a.probe_at = std::stod(v); }
+        else if (k == "--probe-dur") { if (!need(v)) return false; a.probe_dur = std::stod(v); }
+        else if (k == "--probe-amp") { if (!need(v)) return false; a.probe_amp = std::stof(v); }
+        else if (k == "--wav-until") { if (!need(v)) return false; a.wav_until = std::stod(v); }
+        else if (k == "--adapt-k") { if (!need(v)) return false; a.adapt_k = std::stod(v); }
+        else if (k == "--adapt-tau") { if (!need(v)) return false; a.adapt_tau = std::stod(v); }
         else if (k == "--resume") a.resume = true;
         else if (k == "--list") a.list = true;
         else if (k == "--quiet") a.quiet = true;
@@ -183,6 +197,8 @@ void write_config(const Args& a, const Model& m, const std::string& path, const 
 int main(int argc, char** argv) {
     Args a;
     if (!parse(argc, argv, a)) { usage(); return 2; }
+    if (a.adapt_k >= 0.0) a.overrides["adapt_k"] = std::to_string(a.adapt_k);
+    if (a.adapt_tau > 0.0) a.overrides["adapt_tau_steps"] = std::to_string(a.adapt_tau * a.sps);
     if (a.list_audio) { std::printf("audio files in %s:\n%s", a.audio_dir.c_str(), list_audio_dir(a.audio_dir).c_str()); return 0; }
     if (a.list) {
         std::printf("presets:\n");
@@ -219,7 +235,6 @@ int main(int argc, char** argv) {
     float wav_peak = 0.0f;
     if (a.stim == "pulse") {
         source = std::make_unique<PulseSource>(a.pulse);
-        input_record = source->describe();
     } else if (a.stim == "wav") {
         WavData w; std::string err; AudioLoadInfo li;
         if (!load_audio(a.wav_path, a.audio_dir, w, &li, &err)) { std::fprintf(stderr, "audio: %s\n", err.c_str()); return 1; }
@@ -230,12 +245,21 @@ int main(int argc, char** argv) {
         std::ostringstream d;
         d << "wav " << li.resolved_path << (li.converted ? " [converted to " + li.wav_path + "]" : "") << " (" << w.sample_rate << " Hz, " << w.channels << " ch, " << w.bits << (w.is_float ? "-bit float" : "-bit PCM")
           << ", " << w.mono.size() << " frames) rms window 1/" << a.sps << " s, peak_rms " << wav_peak << " -> 1.0, ema tau " << a.smooth_tau << " s";
-        input_record = d.str();
-        source = std::make_unique<EnvelopeSource>(std::move(raw), std::move(sm), a.sps, input_record);
+        auto env = std::make_unique<EnvelopeSource>(std::move(raw), std::move(sm), a.sps, d.str());
+        if (a.wav_until >= 0.0) env->truncate(a.wav_until);
+        source = std::move(env);
     } else if (a.stim != "none") {
         std::fprintf(stderr, "unknown --stim %s\n", a.stim.c_str());
         return 1;
     }
+    if (a.probe_at >= 0.0) {
+        PulseParams pp; pp.start = a.probe_at; pp.duration = a.probe_dur; pp.period = 0.0; pp.count = 1; pp.amplitude = a.probe_amp;
+        auto cs = std::make_unique<CompositeSource>();
+        if (source) cs->add(std::move(source));
+        cs->add(std::make_unique<PulseSource>(pp));
+        source = std::move(cs);
+    }
+    if (source) input_record = source->describe();
 
     mkdir_p(a.out + "/frames");
     write_config(a, *model, a.out + "/config.json", input_record);
@@ -245,7 +269,9 @@ int main(int argc, char** argv) {
     for (const Channel& c : chans) names.push_back(c.name);
 
     std::ofstream csv(a.out + "/metrics.csv", a.resume ? std::ios::app : std::ios::out);
-    if (!a.resume) csv << csv_header(names) << "," << names[0] << "_cx," << names[0] << "_cy," << names[0] << "_spread," << names[0] << "_components," << names[0] << "_speed," << names[0] << "_heading_deg,stim_mean\n";
+    if (!a.resume) csv << csv_header(names) << "," << names[0] << "_cx," << names[0] << "_cy," << names[0] << "_spread," << names[0] << "_components," << names[0] << "_speed," << names[0] << "_heading_deg,stim_mean";
+    if (!a.resume) for (const auto& ss : model->slow_states()) csv << "," << ss.first;
+    if (!a.resume) csv << "\n";
     std::ofstream stim_csv(a.out + "/stimulus.csv", a.resume ? std::ios::app : std::ios::out);
     if (!a.resume) stim_csv << "step,t,t_real_seconds,raw,amplitude\n";
 
@@ -290,15 +316,18 @@ int main(int argc, char** argv) {
         prev_shape = sh;
         prev_shape_step = model->step_count();
         have_prev = true;
-        csv << csv_row(model->step_count(), model->time(), ms) << ',' << sh.cx << ',' << sh.cy << ',' << sh.spread << ',' << sh.components << ',' << speed << ',' << heading << ',' << stim_mean << "\n";
+        csv << csv_row(model->step_count(), model->time(), ms) << ',' << sh.cx << ',' << sh.cy << ',' << sh.spread << ',' << sh.components << ',' << speed << ',' << heading << ',' << stim_mean;
+        for (const auto& ss : model->slow_states()) csv << ',' << ss.second;
+        csv << "\n";
         char name[64];
         std::snprintf(name, sizeof(name), "/frames/frame_%07llu.png", static_cast<unsigned long long>(model->step_count()));
         write_png_rgb(a.out + name, chans[0].grid->width() * a.scale, chans[0].grid->height() * a.scale,
                       render_rgb(*chans[0].grid, a.scale, a.colormap, 0.0f, a.vmax));
         if (!a.quiet) {
-            std::printf("step %8llu  %s: sum %.3f above %zu  c=(%.1f,%.1f) spread %.2f comp %zu speed %.3f head %.1f stim %.3f%s\n",
+            std::printf("step %8llu  %s: sum %.3f above %zu  c=(%.1f,%.1f) spread %.2f comp %zu speed %.3f head %.1f stim %.3f%s%s\n",
                         static_cast<unsigned long long>(model->step_count()), names[0].c_str(), ms[0].sum,
-                        ms[0].count_above, sh.cx, sh.cy, sh.spread, sh.components, speed, heading, stim_mean, ms[0].finite ? "" : "  NON-FINITE");
+                        ms[0].count_above, sh.cx, sh.cy, sh.spread, sh.components, speed, heading, stim_mean,
+                        model->slow_states().empty() ? "" : ("  m=" + std::to_string(model->slow_states()[0].second)).c_str(), ms[0].finite ? "" : "  NON-FINITE");
         }
     };
 
@@ -338,6 +367,7 @@ int main(int argc, char** argv) {
     std::ofstream sum(a.out + "/summary.txt");
     sum << "code_version " << CAVE_GIT_HASH << "\n";
     sum << "input " << input_record << "\n";
+    for (const auto& ss : model->slow_states()) sum << "slow_state " << ss.first << " " << ss.second << "\n";
     sum << "steps " << start << " -> " << model->step_count() << "  (" << a.steps << " this run)\n";
     sum << "wall_seconds " << secs << "  ms_per_step " << (a.steps > 0 ? 1000.0 * secs / static_cast<double>(a.steps) : 0.0) << "\n";
     sum << "grid " << a.width << "x" << a.height << "  cells " << cells << "\n";

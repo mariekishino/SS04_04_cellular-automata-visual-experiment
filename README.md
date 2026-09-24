@@ -6,14 +6,14 @@
 ## 3行で言うと
 
 - **何を作るか:** まとまりを保ちながら流体のように動く視覚的存在。音はスイッチではなく環境入力。
-- **今どこか:** **Phase 2(音への即時応答)**。Phase 1 で Orbium が無音でも動き続ける身体になった。
-- **次に何をするか:** 合成パルスと WAV から刺激を作り、内部更新に作用させて、無音との差と停止後の減衰を測る。
+- **今どこか:** **Phase 3(履歴)**。Phase 2 で音の刺激が内部更新に作用し、一様なら一過性、勾配なら向きが変わることが分かった。
+- **次に何をするか:** 刺激の長期平均を遅い状態変数として持ち(順応)、同じ音でも履歴によって応答が違うか、その差がどれだけ残るかを測る。
 
 ## 現在のフェーズ
 
-**Phase 2 — 音への即時応答** → [docs/phases/02_sound_response.md](docs/phases/02_sound_response.md)
+**Phase 3 — 履歴** → [docs/phases/03_history.md](docs/phases/03_history.md)
 
-Phase 0・1 は完了(報告: [Phase 0](docs/phases/00_report.md)、[Phase 1](docs/phases/01_report.md))。採用モデルは Lenia 型(Orbium、周期境界、64×64)。
+Phase 0〜2 は完了(報告: [Phase 0](docs/phases/00_report.md)、[Phase 1](docs/phases/01_report.md)、[Phase 2](docs/phases/02_report.md))。採用モデルは Lenia 型(Orbium、周期境界、64×64)、刺激の入り口は成長関数への加算。
 
 フェーズを進めるときは、この節だけを書き換えます。コーディングエージェントはこの節を「今の作業範囲」として読みます([CLAUDE.md](CLAUDE.md) 参照)。
 

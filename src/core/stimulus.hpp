@@ -9,8 +9,9 @@ namespace cave {
 
 enum class StimulusShape {
     Uniform,    // h = 1 everywhere
-    GradientX   // h = x / (W - 1): 0 at the left edge, 1 at the right edge
+    GradientX,  // h = x / (W - 1): 0 at the left edge, 1 at the right edge
                 // (discontinuous across the periodic seam; recorded as such)
+    CosX        // h = (1 - cos(2 pi x / W)) / 2: 0 at the seam, 1 at the center, continuous
 };
 
 struct Stimulus {
