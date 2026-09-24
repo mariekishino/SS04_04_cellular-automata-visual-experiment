@@ -88,12 +88,10 @@ void displacement(double ax, double ay, double bx, double by, int W, int H, Boun
     }
 }
 
-ShapeMetrics compute_shape(const Grid& g, Boundary b, float threshold) {
+ShapeMetrics compute_centroid(const Grid& g, Boundary b) {
     ShapeMetrics s;
     const int W = g.width(), H = g.height();
     const std::vector<float>& a = g.raw();
-
-    // --- centroid ---
     double sx = 0, sy = 0, cxs = 0, cxc = 0, cys = 0, cyc = 0;
     for (int y = 0; y < H; ++y) {
         for (int x = 0; x < W; ++x) {
@@ -121,6 +119,15 @@ ShapeMetrics compute_shape(const Grid& g, Boundary b, float threshold) {
         s.cx = sx / s.mass;
         s.cy = sy / s.mass;
     }
+    return s;
+}
+
+ShapeMetrics compute_shape(const Grid& g, Boundary b, float threshold) {
+    ShapeMetrics s = compute_centroid(g, b);
+    const int W = g.width(), H = g.height();
+    const std::vector<float>& a = g.raw();
+    if (s.mass <= 0.0) return s;
+    // --- (centroid computed above) ---
 
     // --- spread: RMS minimal-image distance from centroid ---
     double acc = 0.0;

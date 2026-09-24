@@ -57,6 +57,9 @@ struct ShapeMetrics {
 
 ShapeMetrics compute_shape(const Grid& g, Boundary b, float threshold);
 
+// Mass and centroid only (no spread, no components). Cheap enough to call every step.
+ShapeMetrics compute_centroid(const Grid& g, Boundary b);
+
 // Minimal-image displacement from (ax, ay) to (bx, by) on a W x H grid.
 void displacement(double ax, double ay, double bx, double by, int W, int H, Boundary b, double& dx, double& dy);
 

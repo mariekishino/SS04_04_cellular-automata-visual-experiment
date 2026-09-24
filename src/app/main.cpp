@@ -195,6 +195,11 @@ int main(int argc, char** argv) {
     ShapeMetrics prev_shape;
     unsigned long long prev_shape_step = 0;
     std::vector<double> speeds;
+    // Speed = path length of the centroid / elapsed time, with the centroid tracked EVERY step.
+    // Sampling only at snapshots would alias: with periodic wrap, a displacement larger than
+    // W/2 between samples is folded back (observed in Phase 1 with --every 100).
+    ShapeMetrics track = compute_centroid(*chans[0].grid, model->boundary());
+    double path_len = 0.0;
     std::size_t comp_min = 0, comp_max = 0;
     double spread_min = 0.0, spread_max = 0.0;
 
@@ -207,13 +212,12 @@ int main(int argc, char** argv) {
         }
         const ShapeMetrics sh = compute_shape(*chans[0].grid, model->boundary(), a.threshold);
         double speed = 0.0;
-        if (have_prev && model->step_count() > prev_shape_step && sh.mass > 0.0 && prev_shape.mass > 0.0) {
-            double dx, dy;
-            displacement(prev_shape.cx, prev_shape.cy, sh.cx, sh.cy, chans[0].grid->width(), chans[0].grid->height(), model->boundary(), dx, dy);
+        if (have_prev && model->step_count() > prev_shape_step) {
             const double elapsed = static_cast<double>(model->step_count() - prev_shape_step) * model->dt();
-            speed = std::sqrt(dx * dx + dy * dy) / elapsed;  // cells per unit time
+            speed = path_len / elapsed;  // cells per unit time, from per-step centroid tracking
             speeds.push_back(speed);
         }
+        path_len = 0.0;
         if (!have_prev) { comp_min = comp_max = sh.components; spread_min = spread_max = sh.spread; }
         else {
             comp_min = std::min(comp_min, sh.components); comp_max = std::max(comp_max, sh.components);
@@ -240,6 +244,15 @@ int main(int argc, char** argv) {
     snapshot();
     while (model->step_count() < target) {
         model->step();
+        {
+            const ShapeMetrics now = compute_centroid(*chans[0].grid, model->boundary());
+            if (now.mass > 0.0 && track.mass > 0.0) {
+                double dx, dy;
+                displacement(track.cx, track.cy, now.cx, now.cy, chans[0].grid->width(), chans[0].grid->height(), model->boundary(), dx, dy);
+                path_len += std::sqrt(dx * dx + dy * dy);
+            }
+            track = now;
+        }
         if (model->step_count() % static_cast<unsigned long long>(a.every) == 0 || model->step_count() == target) snapshot();
     }
     const double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
@@ -266,7 +279,7 @@ int main(int argc, char** argv) {
         double mean_speed = 0.0;
         for (double v : speeds) mean_speed += v;
         if (!speeds.empty()) mean_speed /= static_cast<double>(speeds.size());
-        sum << "shape " << names[0] << ": mean_speed " << mean_speed << " (cells per unit time, over " << speeds.size()
+        sum << "shape " << names[0] << ": mean_speed " << mean_speed << " (cells per unit time, centroid path length tracked every step, over " << speeds.size()
             << " intervals)  components " << comp_min << ".." << comp_max << "  spread " << spread_min << ".." << spread_max
             << "  final mass " << prev_shape.mass << " centroid (" << prev_shape.cx << ", " << prev_shape.cy << ")\n";
     }

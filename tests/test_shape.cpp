@@ -38,6 +38,9 @@ int main() {
     // empty grid: mass 0, no components, no NaN
     ShapeMetrics e = compute_shape(Grid(4, 4, 0.0f), Boundary::Periodic, 0.5f);
     CHECK(e.mass == 0.0 && e.components == 0 && std::isfinite(e.cx));
+    // compute_centroid agrees with compute_shape
+    ShapeMetrics c1 = compute_centroid(h, Boundary::Periodic), c2 = compute_shape(h, Boundary::Periodic, 0.5f);
+    CHECK_NEAR(c1.cx, c2.cx, 1e-12); CHECK_NEAR(c1.cy, c2.cy, 1e-12); CHECK_NEAR(c1.mass, c2.mass, 1e-12);
     std::puts("test_shape OK");
     return 0;
 }
