@@ -41,6 +41,9 @@ public:
     // Human-readable parameters for config.json. Order is preserved.
     virtual std::vector<std::pair<std::string, std::string>> parameters() const = 0;
 
+    // Slow internal states (Phase 3+), e.g. {"adapt_m", m}. Empty if none.
+    virtual std::vector<std::pair<std::string, double>> slow_states() const { return {}; }
+
     // Short description of the update rule and its source, for the record.
     virtual std::string formula() const = 0;
 

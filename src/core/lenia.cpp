@@ -79,7 +79,15 @@ void Lenia::step(const Stimulus& stim) {
     float* out = next_.raw().data();
     // drive = gain * s(t). Exactly 0 when there is no stimulus or the mode is None,
     // so the branch below leaves the Phase 1 arithmetic untouched.
-    const float drive = (p_.stim_mode == StimMode::None) ? 0.0f : p_.stim_gain * stim.amplitude;
+    // Phase 3: the slow state seen by this step is the one accumulated from PAST stimuli
+    // (read before update), so the response depends on history, not on the current sample.
+    float gain_eff = p_.stim_gain;
+    if (p_.adapt_k > 0.0f) {
+        gain_eff = p_.stim_gain / (1.0f + p_.adapt_k * m_);
+        const float alpha = 1.0f - std::exp(-1.0f / p_.adapt_tau_steps);
+        m_ += alpha * (stim.amplitude - m_);
+    }
+    const float drive = (p_.stim_mode == StimMode::None) ? 0.0f : gain_eff * stim.amplitude;
 
     for (int y = 0; y < H; ++y) {
         for (int x = 0; x < W; ++x) {
@@ -126,6 +134,9 @@ std::vector<std::pair<std::string, std::string>> Lenia::parameters() const {
         {"growth", "2 exp(-(u-mu)^2 / (2 sigma^2)) - 1"},
         {"stim_mode", stim_mode_name(p_.stim_mode)},
         {"stim_gain", f(p_.stim_gain)},
+        {"adapt_k", f(p_.adapt_k)},
+        {"adapt_tau_steps", f(p_.adapt_tau_steps)},
+        {"adapt_rule", "m += (1-exp(-1/tau))(s-m); g_eff = gain/(1+k m)"},
     };
 }
 
@@ -133,13 +144,19 @@ std::string Lenia::formula() const {
     return "Lenia-type (Chan 2019, kn=1, gn=1, b=[1]): A' = clip(A + dt * G(K * A), 0, 1)";
 }
 
+std::vector<std::pair<std::string, double>> Lenia::slow_states() const {
+    return {{"adapt_m", static_cast<double>(m_)}};
+}
+
 void Lenia::save_state(std::ostream& os) const {
     os.write(reinterpret_cast<const char*>(&steps_), sizeof(steps_));
+    os.write(reinterpret_cast<const char*>(&m_), sizeof(m_));
     write_grid(os, a_);
 }
 
 void Lenia::load_state(std::istream& is) {
     is.read(reinterpret_cast<char*>(&steps_), sizeof(steps_));
+    is.read(reinterpret_cast<char*>(&m_), sizeof(m_));
     read_grid(is, a_);
     next_ = Grid(a_.width(), a_.height(), 0.0f);
     build_index_tables();

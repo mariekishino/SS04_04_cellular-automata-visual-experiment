@@ -6,14 +6,14 @@
 ## 3行で言うと
 
 - **何を作るか:** まとまりを保ちながら流体のように動く視覚的存在。音はスイッチではなく環境入力。
-- **今どこか:** **Phase 2(音への即時応答)**。Phase 1 で Orbium が無音でも動き続ける身体になった。
-- **次に何をするか:** 合成パルスと WAV から刺激を作り、内部更新に作用させて、無音との差と停止後の減衰を測る。
+- **今どこか:** **Phase 3(履歴)**。Phase 2 で音の刺激が内部更新に作用し、一様なら一過性、勾配なら向きが変わることが分かった。
+- **次に何をするか:** 刺激の長期平均を遅い状態変数として持ち(順応)、同じ音でも履歴によって応答が違うか、その差がどれだけ残るかを測る。
 
 ## 現在のフェーズ
 
-**Phase 2 — 音への即時応答** → [docs/phases/02_sound_response.md](docs/phases/02_sound_response.md)
+**Phase 3 — 履歴** → [docs/phases/03_history.md](docs/phases/03_history.md)
 
-Phase 0・1 は完了(報告: [Phase 0](docs/phases/00_report.md)、[Phase 1](docs/phases/01_report.md))。採用モデルは Lenia 型(Orbium、周期境界、64×64)。
+Phase 0〜2 は完了(報告: [Phase 0](docs/phases/00_report.md)、[Phase 1](docs/phases/01_report.md)、[Phase 2](docs/phases/02_report.md))。採用モデルは Lenia 型(Orbium、周期境界、64×64)、刺激の入り口は成長関数への加算。
 
 フェーズを進めるときは、この節だけを書き換えます。コーディングエージェントはこの節を「今の作業範囲」として読みます([CLAUDE.md](CLAUDE.md) 参照)。
 
@@ -68,6 +68,22 @@ scripts/compare_runs.py experiments/out/base experiments/out/pulse
 
 各 run の `stimulus.csv` に毎ステップの振幅、`metrics.csv` に進行方向(`heading_deg`)と区間平均の刺激(`stim_mean`)が加わります。設計の理由は [decisions/0005](docs/decisions/0005_stimulus_path_and_audio.md)。
 
+### 履歴(Phase 3、順応)
+
+```bash
+# 密なパルス列(0〜20 s)の後、2 秒の無音を置いて 22 s に探針。順応 k=3、時定数 10 s
+./build/cave --out experiments/out/h2 --steps 1620 --every 30 --stim pulse --pulse-start 1 --pulse-dur 0.5 --pulse-period 1 --pulse-count 19 \
+  --probe-at 22 --probe-dur 0.5 --stim-mode growth --stim-gain 0.3 --adapt-k 3 --adapt-tau 10
+# 同じ探針を、無音の履歴の後に
+./build/cave --out experiments/out/h0 --steps 1620 --every 30 --stim none --probe-at 22 --probe-dur 0.5 --stim-mode growth --stim-gain 0.3 --adapt-k 3 --adapt-tau 10
+scripts/phase3_summary.py experiments/out          # 探針応答(総量増)と探針時の m を一覧
+
+# 窓アプリで曲を聞きながら順応を見る(タイトルの m が遅い状態変数)
+./build-sdl/cave_window --wav 曲名 --stim-mode growth --stim-gain 0.3 --stim-shape cos_x --adapt-k 3 --adapt-tau 10
+```
+
+`metrics.csv` に `adapt_m` 列が加わります。`--wav-until T` で曲を T 秒以降無音にでき、`--stim-shape cos_x` は周期境界で連続な形です。設計の理由は [decisions/0006](docs/decisions/0006_adaptation_as_history.md)。
+
 Linux でソースからビルドする場合は X11 の開発パッケージが要ります(一覧は [decisions/0003](docs/decisions/0003_sdl3_window_fetchcontent.md))。VM では仮想ディスプレイで、Mac では実機で動作を確認しています。Windows は未確認です。
 
 ## ドキュメントの地図
@@ -81,7 +97,7 @@ Linux でソースからビルドする場合は X11 の開発パッケージが
 | 本人 | [docs/04_development_workflow.md](docs/04_development_workflow.md) | 1 フェーズをどう回すか(人間側の手順) |
 | 実装者 | [docs/01_architecture.md](docs/01_architecture.md) | 技術方針、責務の境界、性能の考え方 |
 | 実装者 | [docs/02_experiment_protocol.md](docs/02_experiment_protocol.md) | 何を記録し、何を測るか |
-| 実装者 | [docs/phases/](docs/phases/) | 各フェーズの具体的な実装範囲と完了条件。報告: [Phase 0](docs/phases/00_report.md)、[Phase 1](docs/phases/01_report.md)、[Phase 2](docs/phases/02_report.md) |
+| 実装者 | [docs/phases/](docs/phases/) | 各フェーズの具体的な実装範囲と完了条件。報告: [Phase 0](docs/phases/00_report.md)、[Phase 1](docs/phases/01_report.md)、[Phase 2](docs/phases/02_report.md)、[Phase 3](docs/phases/03_report.md) |
 | 実装者 | [docs/decisions/](docs/decisions/) | 後から変えるときに理由が要る決定 |
 | 本人 | [docs/learning/](docs/learning/) | C++ とモデルの学習メモ |
 | 本人 | [docs/future/](docs/future/) | 今は範囲外の将来構想 |

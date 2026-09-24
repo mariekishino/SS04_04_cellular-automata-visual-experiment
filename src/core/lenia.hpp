@@ -15,6 +15,9 @@
 //
 // Stimulus (Phase 2): see StimMode. With amplitude 0 the update is identical
 // to the stimulus-free one, bit for bit.
+// Adaptation (Phase 3): a scalar slow state m tracks the stimulus with time
+// constant tau; the effective gain is gain / (1 + k m). With k = 0 the Phase 2
+// arithmetic is untouched.
 //
 // Cost per step: W * H * (2R+1)^2 multiply-adds.
 
@@ -41,6 +44,9 @@ struct LeniaParams {
     Boundary boundary = Boundary::Periodic;
     StimMode stim_mode = StimMode::None;
     float stim_gain = 0.0f; // Growth: added to G (G is in [-1,1]); Mu: added to mu (mu is 0.15)
+    // Phase 3 adaptation: m += alpha (s - m), alpha = 1 - exp(-1/tau); g_eff = gain / (1 + k m).
+    float adapt_k = 0.0f;            // 0 = off (Phase 2 arithmetic untouched)
+    float adapt_tau_steps = 600.0f;  // time constant in steps (600 = 10 s at 60 steps/s)
 };
 
 class Lenia : public Model {
@@ -63,6 +69,8 @@ public:
     const std::vector<float>& kernel() const { return k_; }
     int kernel_size() const { return 2 * p_.R + 1; }
     const LeniaParams& params() const { return p_; }
+    float adaptation() const { return m_; }   // slow state m in [0,1]
+    std::vector<std::pair<std::string, double>> slow_states() const override;
 
     static float kernel_core(float r);
     static float growth(float u, float mu, float sigma);
@@ -72,6 +80,7 @@ private:
     void build_index_tables();
 
     LeniaParams p_;
+    float m_ = 0.0f;   // slow state: EMA of the stimulus amplitude (Phase 3)
     Grid a_;        // current state A
     Grid next_;     // written during step(), then swapped
     std::vector<float> k_;   // (2R+1)^2 kernel weights, row-major

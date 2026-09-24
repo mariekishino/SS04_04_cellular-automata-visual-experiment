@@ -60,6 +60,7 @@ struct Args {
     StimulusShape stim_shape = StimulusShape::Uniform;
     double smooth_tau = 0.05;
     std::string audio_dir = "experiments/audio";
+    double adapt_k = -1.0, adapt_tau = -1.0;
 };
 
 bool parse(int argc, char** argv, Args& a) {
@@ -87,6 +88,9 @@ bool parse(int argc, char** argv, Args& a) {
         else if (k == "--stim-shape") { if (!need(v)) return false; a.stim_shape = stimulus_shape_from_name(v.c_str()); }
         else if (k == "--smooth") { if (!need(v)) return false; a.smooth_tau = std::stod(v); }
         else if (k == "--audio-dir") { if (!need(a.audio_dir)) return false; }
+        else if (k == "--adapt-k") { if (!need(v)) return false; a.adapt_k = std::stod(v); }
+        else if (k == "--adapt-tau") { if (!need(v)) return false; a.adapt_tau = std::stod(v); }
+        else if (k == "--set") { if (!need(v)) return false; auto p = v.find('='); if (p == std::string::npos) return false; a.overrides[v.substr(0, p)] = v.substr(p + 1); }
         else if (k == "--keys") {
             if (!need(v)) return false;
             std::size_t pos = 0;
@@ -109,6 +113,7 @@ void usage() {
     std::printf("usage: cave_window [--model M --preset P --init I --seed N --width W --height H --scale S --sps N]\n"
                 "                   [--frames N --keys \"f:key,...\" --shot-dir DIR --shot-every K --report SEC]\n"
                 "                   [--wav FILE|NAME --audio-dir DIR --stim-mode growth|mu --stim-gain G --stim-shape uniform|gradient_x --smooth TAU]\n"
+                "                   [--adapt-k K --adapt-tau SECONDS] [--set key=value]\n"
                 "  NAME is looked up in --audio-dir (default experiments/audio); mp3/m4a/... are converted with ffmpeg once and cached\n"
                 "keys: space pause/resume, n step, r reset, s screenshot, +/- speed, q quit\n");
 }
@@ -153,6 +158,8 @@ bool save_screenshot(SDL_Renderer* ren, const std::string& path) {
 int main(int argc, char** argv) {
     Args a;
     if (!parse(argc, argv, a)) { usage(); return 2; }
+    if (a.adapt_k >= 0.0) a.overrides["adapt_k"] = std::to_string(a.adapt_k);
+    if (a.adapt_tau > 0.0) a.overrides["adapt_tau_steps"] = std::to_string(a.adapt_tau * a.sps);
 
     std::unique_ptr<Model> model;
     auto make = [&]() {
@@ -304,8 +311,9 @@ int main(int argc, char** argv) {
             const ShapeMetrics sh = compute_shape(g, model->boundary(), a.threshold);
             char title[160];
             const float amp_now = envelope ? envelope->amplitude(static_cast<double>(model->step_count()) / a.sps) : 0.0f;
-            std::snprintf(title, sizeof(title), "cave  %s  step %llu  t=%.1f  %.0f steps/s  mass %.1f  comp %zu  stim %.2f%s", paused ? "PAUSED" : "RUN",
-                          static_cast<unsigned long long>(model->step_count()), model->time(), a.sps, sh.mass, sh.components, amp_now,
+            const double m_now = model->slow_states().empty() ? 0.0 : model->slow_states()[0].second;
+            std::snprintf(title, sizeof(title), "cave  %s  step %llu  t=%.1f  %.0f steps/s  mass %.1f  comp %zu  stim %.2f  m %.2f%s", paused ? "PAUSED" : "RUN",
+                          static_cast<unsigned long long>(model->step_count()), model->time(), a.sps, sh.mass, sh.components, amp_now, m_now,
                           audio ? "  (audio clock)" : "");
             SDL_SetWindowTitle(win, title);
             std::printf("frame %ld  %s\n", frame, title);
