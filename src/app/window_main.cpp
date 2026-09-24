@@ -151,6 +151,13 @@ int main(int argc, char** argv) {
     SDL_Texture* tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, a.width, a.height);
     if (!tex) { std::fprintf(stderr, "SDL_CreateTexture: %s\n", SDL_GetError()); return 1; }
     SDL_SetTextureScaleMode(tex, SDL_SCALEMODE_NEAREST);  // crisp cells, no blur
+    std::printf("SDL %d.%d.%d  video driver: %s  renderer: %s  window %dx%d\n", SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_MICRO_VERSION,
+                SDL_GetCurrentVideoDriver(), SDL_GetRendererName(ren), a.width * a.scale, a.height * a.scale);
+    {
+        const SDL_PropertiesID props = SDL_GetWindowProperties(win);
+        const Sint64 xid = SDL_GetNumberProperty(props, SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0);
+        if (xid) std::printf("X11 window id: 0x%llx  flags: 0x%llx\n", static_cast<unsigned long long>(xid), static_cast<unsigned long long>(SDL_GetWindowFlags(win)));
+    }
 
     bool running = true, paused = false;
     double accumulator = 0.0;  // seconds of simulation time owed
