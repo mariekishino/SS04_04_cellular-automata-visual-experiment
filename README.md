@@ -44,6 +44,26 @@ cmake --build build-sdl -j --target cave_window
 
 キー: Space 停止/再開、N 1 ステップ(停止中)、R 同じ seed でリセット、S スクリーンショット、+/- 速度を 2 倍/半分、Q 終了。タイトルバーにステップ数・速度・総量・連結成分数が出ます。
 
+### 音の刺激(Phase 2)
+
+```bash
+python3 scripts/gen_test_wav.py experiments/audio        # kick120.wav / tone.wav / silence.wav を生成
+scripts/to_wav.sh song.mp3                               # MP3 などを WAV に変換(ffmpeg)
+
+# CLI: 合成パルス(t=2 s から 0.5 秒)を成長関数に加算、無音の基準と比較
+./build/cave --out experiments/out/base  --steps 1200 --every 20
+./build/cave --out experiments/out/pulse --steps 1200 --every 20 --stim pulse --stim-mode growth --stim-gain 0.2 --pulse-start 2 --pulse-dur 0.5
+scripts/compare_runs.py experiments/out/base experiments/out/pulse
+
+# CLI: WAV の RMS 包絡で mu を変調
+./build/cave --out experiments/out/wav --steps 720 --every 20 --stim wav --wav experiments/audio/kick120.wav --stim-mode mu --stim-gain 0.01 --stim-shape gradient_x
+
+# 窓アプリ: WAV を再生しながら、再生クロックに合わせて刺激を与える
+./build-sdl/cave_window --wav experiments/audio/kick120.wav --stim-mode growth --stim-gain 0.2
+```
+
+各 run の `stimulus.csv` に毎ステップの振幅、`metrics.csv` に進行方向(`heading_deg`)と区間平均の刺激(`stim_mean`)が加わります。設計の理由は [decisions/0005](docs/decisions/0005_stimulus_path_and_audio.md)。
+
 Linux でソースからビルドする場合は X11 の開発パッケージが要ります(一覧は [decisions/0003](docs/decisions/0003_sdl3_window_fetchcontent.md))。VM では仮想ディスプレイで、Mac では実機で動作を確認しています。Windows は未確認です。
 
 ## ドキュメントの地図

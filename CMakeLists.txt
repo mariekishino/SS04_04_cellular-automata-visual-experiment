@@ -72,8 +72,8 @@ if(CAVE_WITH_SDL3)
     set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
     set(SDL_TESTS OFF CACHE BOOL "" FORCE)
     set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
-    # Phase 1 needs only video. Audio comes back in Phase 2.
-    set(SDL_AUDIO OFF CACHE BOOL "" FORCE)
+    # Phase 2: video + audio (WAV playback in cave_window). Other subsystems stay off.
+    set(SDL_AUDIO ON CACHE BOOL "" FORCE)
     set(SDL_CAMERA OFF CACHE BOOL "" FORCE)
     set(SDL_GPU OFF CACHE BOOL "" FORCE)
     set(SDL_HAPTIC OFF CACHE BOOL "" FORCE)
