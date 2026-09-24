@@ -36,6 +36,7 @@ add_library(cave_core
   src/core/grid.cpp
   src/core/model.cpp
   src/core/stimulus.cpp
+  src/core/input.cpp
   src/core/lenia.cpp
   src/core/gray_scott.cpp
   src/core/metrics.cpp
@@ -48,6 +49,7 @@ target_compile_options(cave_core PRIVATE -Wall -Wextra -Wpedantic)
 add_library(cave_io
   src/io/png.cpp
   src/io/colormap.cpp
+  src/io/wav.cpp
 )
 target_link_libraries(cave_io PUBLIC cave_core)
 target_compile_options(cave_io PRIVATE -Wall -Wextra -Wpedantic)
@@ -91,7 +93,7 @@ endif()
 
 # --- tests ---
 enable_testing()
-foreach(t test_grid test_lenia test_gray_scott test_metrics test_shape test_png test_determinism test_stimulus)
+foreach(t test_grid test_lenia test_gray_scott test_metrics test_shape test_png test_determinism test_stimulus test_input)
   add_executable(${t} tests/${t}.cpp)
   target_link_libraries(${t} PRIVATE cave_core cave_io)
   add_test(NAME ${t} COMMAND ${t})
