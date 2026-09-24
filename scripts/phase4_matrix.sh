@@ -8,7 +8,7 @@
 # usage: scripts/phase4_matrix.sh [OUT=experiments/out/phase4]
 set -euo pipefail
 out="${1:-experiments/out/phase4}"; B=./build/cave
-common=(--quiet --model lenia --preset orbium --init orbium --width 64 --height 64 --every 60 --sps 60 --stim-mode growth --stim-gain 0.3 --adapt-k 3 --adapt-tau 10)
+common=(--quiet --model lenia --preset orbium --init orbium --width 64 --height 64 --every 30 --sps 60 --stim-mode growth --stim-gain 0.3 --adapt-k 3 --adapt-tau 10)
 mkdir -p "$out"
 env_args() {
   case "$1" in
