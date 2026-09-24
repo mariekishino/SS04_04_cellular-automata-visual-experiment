@@ -1,6 +1,7 @@
 #pragma once
 // Orbium unicaudatus (code O2u) initial pattern, decoded from
 // https://github.com/Chakazul/Lenia/blob/master/Python/animals.json
+// Lenia is (c) Bert Wang-Chak Chan, released under the MIT License.
 // params there: R=13, T=10, b=1, m=0.15, s=0.015, kn=1, gn=1
 // Values are cell states in [0,1], row-major, 20 wide x 20 high.
 namespace cave {
