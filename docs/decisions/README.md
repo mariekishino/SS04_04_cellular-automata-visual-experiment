@@ -25,3 +25,4 @@
 - [0001 — 言語と責務の境界](0001_language_and_boundaries.md)
 - [0002 — Phase 0 の表示は PNG フレーム + 動画](0002_headless_rendering_phase0.md)
 - [0003 — SDL3 の窓表示を CMake オプションで追加し、仮想ディスプレイで検証する](0003_sdl3_window_fetchcontent.md)
+- [0004 — 刺激なしの基準動作として Orbium の直進を受け入れる](0004_accept_gliding_baseline.md)
